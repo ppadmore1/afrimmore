@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Plus, Trash2, Search, Package } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Search, Package, Download } from "lucide-react";
 import { format } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ import {
   DocumentStatus,
 } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
+import { downloadDeliveryNotePDF } from "@/lib/pdf";
 
 interface LineItem {
   id: string;
@@ -265,18 +266,55 @@ export default function DeliveryNoteForm() {
         className="space-y-6"
       >
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {isEditing ? "Edit Delivery Note" : "New Delivery Note"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {deliveryNumber}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                {isEditing ? "Edit Delivery Note" : "New Delivery Note"}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {deliveryNumber}
+              </p>
+            </div>
           </div>
+          {isEditing && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const deliveryNote = {
+                  id: id!,
+                  delivery_number: deliveryNumber,
+                  customer_id: customerId || null,
+                  customer_name: customerName,
+                  customer_address: customerAddress || null,
+                  status,
+                  delivery_date: deliveryDate || null,
+                  notes: notes || null,
+                  invoice_id: null,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  created_by: null,
+                  items: items.map(item => ({
+                    id: item.id,
+                    delivery_note_id: id!,
+                    product_id: item.product_id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    created_at: new Date().toISOString(),
+                  })),
+                };
+                downloadDeliveryNotePDF(deliveryNote);
+                toast({ title: "PDF downloaded" });
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
