@@ -19,6 +19,8 @@ import DeliveryNoteForm from "./pages/DeliveryNoteForm";
 import InvoicesPage from "./pages/InvoicesPage";
 import InvoiceForm from "./pages/InvoiceForm";
 import InvoiceDetail from "./pages/InvoiceDetail";
+import CustomersPage from "./pages/CustomersPage";
+import CustomerForm from "./pages/CustomerForm";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +51,9 @@ const App = () => (
             <Route path="/delivery-notes/new" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
             <Route path="/delivery-notes/:id" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
             <Route path="/delivery-notes/:id/edit" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
-            <Route path="/customers" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
+            <Route path="/customers/new" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
+            <Route path="/customers/:id/edit" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
