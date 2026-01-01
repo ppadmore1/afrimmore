@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Plus, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Search, Download } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   DocumentStatus,
 } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
+import { downloadQuotationPDF } from "@/lib/pdf";
 
 interface LineItem {
   id: string;
@@ -287,18 +288,63 @@ export default function QuotationForm() {
         className="space-y-6"
       >
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {isEditing ? "Edit Quotation" : "New Quotation"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {quotationNumber}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                {isEditing ? "Edit Quotation" : "New Quotation"}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {quotationNumber}
+              </p>
+            </div>
           </div>
+          {isEditing && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const quotation = {
+                  id: id!,
+                  quotation_number: quotationNumber,
+                  customer_id: customerId || null,
+                  customer_name: customerName,
+                  customer_email: customerEmail || null,
+                  customer_address: customerAddress || null,
+                  status,
+                  valid_until: validUntil || null,
+                  notes: notes || null,
+                  subtotal,
+                  tax_total: taxTotal,
+                  discount_total: discountTotal,
+                  total,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  created_by: null,
+                  items: items.map(item => ({
+                    id: item.id,
+                    quotation_id: id!,
+                    product_id: item.product_id,
+                    description: item.description,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    tax_rate: item.tax_rate,
+                    discount: item.discount,
+                    total: item.total,
+                    created_at: new Date().toISOString(),
+                  })),
+                };
+                downloadQuotationPDF(quotation);
+                toast({ title: "PDF downloaded" });
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
