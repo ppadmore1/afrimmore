@@ -7,6 +7,8 @@ import {
   Trash2, 
   Save,
   Calculator,
+  Mail,
+  Loader2,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -36,12 +38,14 @@ import {
   InvoiceStatus,
 } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
+import { useSendDocumentEmail } from "@/hooks/useSendDocumentEmail";
 import { format } from "date-fns";
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = Boolean(id);
+  const { sendEmail, isSending } = useSendDocumentEmail();
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -196,6 +200,37 @@ export default function InvoiceForm() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSendEmail() {
+    const customer = customers.find(c => c.id === selectedCustomerId);
+    if (!customer?.email) {
+      toast({ 
+        title: "No Email Address", 
+        description: "This customer doesn't have an email address.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    await sendEmail({
+      type: "invoice",
+      documentNumber: invoiceNumber,
+      customerName: customer.name,
+      customerEmail: customer.email,
+      items: items.map(item => ({
+        description: item.description || item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total,
+      })),
+      subtotal,
+      taxTotal,
+      discountTotal,
+      total,
+      dueDate: dueDate,
+      notes,
+    });
   }
 
   if (loading) {
@@ -464,6 +499,21 @@ export default function InvoiceForm() {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
+            {isEditing && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleSendEmail}
+                disabled={isSending || !selectedCustomerId}
+              >
+                {isSending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Mail className="w-4 h-4 mr-2" />
+                )}
+                {isSending ? "Sending..." : "Send Email"}
+              </Button>
+            )}
             <Button type="submit" disabled={saving}>
               <Save className="w-4 h-4 mr-2" />
               {saving ? "Saving..." : isEditing ? "Update Invoice" : "Create Invoice"}
