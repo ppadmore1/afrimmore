@@ -11,31 +11,63 @@ import {
   Calendar,
   User,
   FileText,
+  Plus,
+  CreditCard,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   getInvoice, 
   getCustomer, 
   deleteInvoice,
-  getPaymentsByInvoice,
+  getPayments,
+  addPayment,
+  getNextPaymentNumber,
   Invoice, 
   Customer,
   Payment,
-} from "@/lib/db";
+  PaymentMethod,
+} from "@/lib/supabase-db";
 import { downloadInvoicePDF, printInvoice } from "@/lib/pdf";
 import { toast } from "@/hooks/use-toast";
 
-const statusConfig: Record<string, { variant: "success" | "warning" | "info" | "muted" | "destructive"; label: string }> = {
-  paid: { variant: "success", label: "Paid" },
-  partial: { variant: "warning", label: "Partial" },
-  sent: { variant: "info", label: "Sent" },
-  draft: { variant: "muted", label: "Draft" },
-  overdue: { variant: "destructive", label: "Overdue" },
-  cancelled: { variant: "muted", label: "Cancelled" },
+const statusConfig: Record<string, { className: string; label: string }> = {
+  paid: { className: "bg-success text-success-foreground", label: "Paid" },
+  pending: { className: "border-warning text-warning", label: "Pending" },
+  approved: { className: "bg-primary text-primary-foreground", label: "Approved" },
+  draft: { className: "bg-secondary text-secondary-foreground", label: "Draft" },
+  cancelled: { className: "bg-destructive text-destructive-foreground", label: "Cancelled" },
 };
 
 export default function InvoiceDetail() {
@@ -45,52 +77,104 @@ export default function InvoiceDetail() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [paymentDialog, setPaymentDialog] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  // Payment form state
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
 
   useEffect(() => {
-    async function loadData() {
-      if (!id) return;
-      
-      try {
-        const invoiceData = await getInvoice(id);
-        if (invoiceData) {
-          setInvoice(invoiceData);
-          const customerData = await getCustomer(invoiceData.customerId);
-          setCustomer(customerData || null);
-          const paymentsData = await getPaymentsByInvoice(id);
-          setPayments(paymentsData);
-        }
-      } catch (error) {
-        console.error("Error loading invoice:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, [id]);
+
+  async function loadData() {
+    if (!id) return;
+    
+    try {
+      const invoiceData = await getInvoice(id);
+      if (invoiceData) {
+        setInvoice(invoiceData);
+        if (invoiceData.customer_id) {
+          const customerData = await getCustomer(invoiceData.customer_id);
+          setCustomer(customerData || null);
+        }
+        const allPayments = await getPayments();
+        setPayments(allPayments.filter(p => p.invoice_id === id));
+      }
+    } catch (error) {
+      console.error("Error loading invoice:", error);
+      toast({ title: "Error loading invoice", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleDelete() {
     if (!invoice) return;
     
-    if (confirm("Are you sure you want to delete this invoice?")) {
-      try {
-        await deleteInvoice(invoice.id);
-        toast({ title: "Invoice deleted successfully" });
-        navigate("/invoices");
-      } catch (error) {
-        toast({ title: "Error deleting invoice", variant: "destructive" });
-      }
+    setProcessing(true);
+    try {
+      await deleteInvoice(invoice.id);
+      toast({ title: "Invoice deleted successfully" });
+      navigate("/invoices");
+    } catch (error) {
+      toast({ title: "Error deleting invoice", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+      setDeleteDialog(false);
+    }
+  }
+
+  async function handleAddPayment() {
+    if (!invoice || !paymentAmount) return;
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: "Please enter a valid amount", variant: "destructive" });
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const paymentNumber = await getNextPaymentNumber();
+      await addPayment({
+        payment_number: paymentNumber,
+        invoice_id: invoice.id,
+        pos_sale_id: null,
+        amount,
+        payment_method: paymentMethod,
+        reference: paymentReference || null,
+        notes: paymentNotes || null,
+        created_by: null,
+      });
+
+      toast({ title: "Payment recorded successfully" });
+      setPaymentDialog(false);
+      setPaymentAmount("");
+      setPaymentReference("");
+      setPaymentNotes("");
+      loadData(); // Reload to get updated data
+    } catch (error) {
+      console.error("Error adding payment:", error);
+      toast({ title: "Error recording payment", variant: "destructive" });
+    } finally {
+      setProcessing(false);
     }
   }
 
   function handleDownload() {
     if (!invoice) return;
-    downloadInvoicePDF(invoice, customer || undefined);
+    downloadInvoicePDF(invoice, customer || undefined, payments);
     toast({ title: "PDF downloaded" });
   }
 
   function handlePrint() {
     if (!invoice) return;
-    printInvoice(invoice, customer || undefined);
+    printInvoice(invoice, customer || undefined, payments);
   }
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -121,6 +205,8 @@ export default function InvoiceDetail() {
     );
   }
 
+  const items = invoice.items || [];
+
   return (
     <AppLayout>
       <motion.div
@@ -135,12 +221,12 @@ export default function InvoiceDetail() {
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-foreground">{invoice.invoiceNumber}</h1>
-              <Badge variant={statusConfig[invoice.status]?.variant || "muted"} className="text-sm">
+              <h1 className="text-3xl font-bold text-foreground">{invoice.invoice_number}</h1>
+              <Badge className={statusConfig[invoice.status]?.className || "bg-secondary"}>
                 {statusConfig[invoice.status]?.label || invoice.status}
               </Badge>
             </div>
-            <p className="text-muted-foreground mt-1">{invoice.customerName}</p>
+            <p className="text-muted-foreground mt-1">{invoice.customer_name}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={handleDownload}>
@@ -151,13 +237,19 @@ export default function InvoiceDetail() {
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>
+            {balance > 0 && (
+              <Button size="sm" onClick={() => setPaymentDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Payment
+              </Button>
+            )}
             <Link to={`/invoices/${invoice.id}/edit`}>
               <Button variant="outline" size="sm">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
             </Link>
-            <Button variant="destructive" size="sm" onClick={handleDelete}>
+            <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}>
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </Button>
@@ -185,7 +277,7 @@ export default function InvoiceDetail() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Amount Paid</p>
-                <p className="text-xl font-bold font-mono">${totalPaid.toFixed(2)}</p>
+                <p className="text-xl font-bold font-mono text-success">${totalPaid.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>
@@ -197,19 +289,21 @@ export default function InvoiceDetail() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Balance Due</p>
-                <p className="text-xl font-bold font-mono">${balance.toFixed(2)}</p>
+                <p className="text-xl font-bold font-mono text-warning">${balance.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-info" />
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-muted-foreground" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Due Date</p>
-                <p className="text-xl font-bold">{format(new Date(invoice.dueDate), "MMM dd, yyyy")}</p>
+                <p className="text-xl font-bold">
+                  {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : "-"}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -233,16 +327,13 @@ export default function InvoiceDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invoice.items.map((item, index) => (
+                    {items.map((item, index) => (
                       <tr key={index} className="border-b">
                         <td className="py-4">
-                          <p className="font-medium">{item.productName}</p>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground">{item.description}</p>
-                          )}
+                          <p className="font-medium">{item.description}</p>
                         </td>
                         <td className="py-4 text-center">{item.quantity}</td>
-                        <td className="py-4 text-right font-mono">${item.unitPrice.toFixed(2)}</td>
+                        <td className="py-4 text-right font-mono">${item.unit_price.toFixed(2)}</td>
                         <td className="py-4 text-right font-mono font-medium">${item.total.toFixed(2)}</td>
                       </tr>
                     ))}
@@ -256,11 +347,11 @@ export default function InvoiceDetail() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax</span>
-                    <span className="font-mono">${invoice.taxTotal.toFixed(2)}</span>
+                    <span className="font-mono">${invoice.tax_total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Discount</span>
-                    <span className="font-mono">-${invoice.discountTotal.toFixed(2)}</span>
+                    <span className="font-mono">-${invoice.discount_total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t">
                     <span>Total</span>
@@ -271,8 +362,9 @@ export default function InvoiceDetail() {
             </CardContent>
           </Card>
 
-          {/* Customer Info */}
+          {/* Sidebar */}
           <div className="space-y-6">
+            {/* Customer Info */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -282,12 +374,12 @@ export default function InvoiceDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <p className="font-medium">{customer?.name || invoice.customerName}</p>
+                  <p className="font-medium">{customer?.name || invoice.customer_name}</p>
                 </div>
-                {customer?.email && (
+                {(customer?.email || invoice.customer_email) && (
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p>{customer.email}</p>
+                    <p>{customer?.email || invoice.customer_email}</p>
                   </div>
                 )}
                 {customer?.phone && (
@@ -296,25 +388,26 @@ export default function InvoiceDetail() {
                     <p>{customer.phone}</p>
                   </div>
                 )}
-                {customer?.billingAddress && (
+                {(customer?.address || invoice.customer_address) && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Billing Address</p>
-                    <p className="whitespace-pre-line">{customer.billingAddress}</p>
+                    <p className="text-sm text-muted-foreground">Address</p>
+                    <p className="whitespace-pre-line">{customer?.address || invoice.customer_address}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {(invoice.paymentTerms || invoice.notes) && (
+            {/* Notes & Terms */}
+            {(invoice.payment_terms || invoice.notes) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Notes & Terms</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {invoice.paymentTerms && (
+                  {invoice.payment_terms && (
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Terms</p>
-                      <p>{invoice.paymentTerms}</p>
+                      <p>{invoice.payment_terms}</p>
                     </div>
                   )}
                   {invoice.notes && (
@@ -328,20 +421,33 @@ export default function InvoiceDetail() {
             )}
 
             {/* Payment History */}
-            {payments.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment History</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Payment History
+                </CardTitle>
+                {balance > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setPaymentDialog(true)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <p className="text-muted-foreground text-sm text-center py-4">No payments recorded</p>
+                ) : (
                   <div className="space-y-3">
                     {payments.map((payment) => (
                       <div key={payment.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                         <div>
-                          <p className="font-medium">{payment.method}</p>
+                          <p className="font-medium capitalize">{payment.payment_method.replace("_", " ")}</p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(payment.date), "MMM dd, yyyy")}
+                            {format(new Date(payment.created_at), "MMM dd, yyyy")}
                           </p>
+                          {payment.reference && (
+                            <p className="text-xs text-muted-foreground">Ref: {payment.reference}</p>
+                          )}
                         </div>
                         <p className="font-mono font-bold text-success">
                           +${payment.amount.toFixed(2)}
@@ -349,11 +455,103 @@ export default function InvoiceDetail() {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
+
+        {/* Add Payment Dialog */}
+        <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
+          <DialogContent className="bg-background">
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+              <DialogDescription>
+                Balance due: ${balance.toFixed(2)}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Amount *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={balance}
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Reference Number</Label>
+                <Input
+                  placeholder="Transaction reference"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  placeholder="Additional notes..."
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPaymentDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddPayment} disabled={processing || !paymentAmount}>
+                {processing ? "Saving..." : "Record Payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+          <AlertDialogContent className="bg-background">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete invoice {invoice.invoice_number}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={processing}
+              >
+                {processing ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </AppLayout>
   );
