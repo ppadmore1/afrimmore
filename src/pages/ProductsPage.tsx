@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAllProducts, deleteProduct, Product } from "@/lib/db";
+import { getProducts, deleteProduct, Product } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 
 export default function ProductsPage() {
@@ -34,7 +34,7 @@ export default function ProductsPage() {
 
   async function loadProducts() {
     try {
-      const data = await getAllProducts();
+      const data = await getProducts();
       setProducts(data.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error("Error loading products:", error);
@@ -57,7 +57,7 @@ export default function ProductsPage() {
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   return (
@@ -136,19 +136,19 @@ export default function ProductsPage() {
             {filteredProducts.map((product) => (
               <Card key={product.id} className="group">
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
-                        <Package className="w-6 h-6 text-success" />
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
+                          <Package className="w-6 h-6 text-success" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
+                          <p className="text-lg font-bold font-mono text-primary">
+                            ${product.unit_price.toFixed(2)}
+                            {product.unit && <span className="text-sm font-normal text-muted-foreground">/{product.unit}</span>}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
-                        <p className="text-lg font-bold font-mono text-primary">
-                          ${product.price.toFixed(2)}
-                          {product.unit && <span className="text-sm font-normal text-muted-foreground">/{product.unit}</span>}
-                        </p>
-                      </div>
-                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -179,10 +179,10 @@ export default function ProductsPage() {
                     </p>
                   )}
 
-                  {product.stock !== undefined && (
+                  {product.stock_quantity !== undefined && (
                     <div className="mt-4">
-                      <Badge variant={product.stock > 10 ? "success" : product.stock > 0 ? "warning" : "destructive"}>
-                        {product.stock} in stock
+                      <Badge variant={product.stock_quantity > (product.low_stock_threshold || 10) ? "default" : product.stock_quantity > 0 ? "secondary" : "destructive"}>
+                        {product.stock_quantity} in stock
                       </Badge>
                     </div>
                   )}

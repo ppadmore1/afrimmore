@@ -10,6 +10,8 @@ import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import InventoryPage from "./pages/InventoryPage";
 import POSPage from "./pages/POSPage";
+import ProductsPage from "./pages/ProductsPage";
+import ProductForm from "./pages/ProductForm";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,9 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+            <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+            <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
+            <Route path="/products/:id/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/delivery-notes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
