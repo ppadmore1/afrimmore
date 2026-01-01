@@ -18,6 +18,7 @@ import {
   Camera,
 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,27 @@ export default function POSPage() {
   const [amountReceived, setAmountReceived] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [lastSaleReceipt, setLastSaleReceipt] = useState<{
+    saleNumber: string;
+    date: Date;
+    customerName: string | null;
+    items: Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+      taxRate: number;
+      total: number;
+    }>;
+    subtotal: number;
+    taxTotal: number;
+    discountTotal: number;
+    total: number;
+    amountPaid: number;
+    changeAmount: number;
+    paymentMethod: string;
+  } | null>(null);
   useEffect(() => {
     loadData();
   }, []);
@@ -324,17 +346,49 @@ export default function POSPage() {
         created_by: user?.id || null,
       });
 
+      // Prepare receipt data before resetting cart
+      const receiptData = {
+        saleNumber,
+        date: new Date(),
+        customerName: selectedCustomer?.name || null,
+        items: cart.map((item) => {
+          const itemTotal = item.product.unit_price * item.quantity;
+          const discountAmount = (itemTotal * item.discount) / 100;
+          const taxAmount = ((itemTotal - discountAmount) * (item.product.tax_rate || 0)) / 100;
+          return {
+            name: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.product.unit_price,
+            discount: item.discount,
+            taxRate: item.product.tax_rate || 0,
+            total: itemTotal - discountAmount + taxAmount,
+          };
+        }),
+        subtotal,
+        taxTotal,
+        discountTotal,
+        total,
+        amountPaid: parseFloat(amountReceived) || total,
+        changeAmount: Math.max(0, changeAmount),
+        paymentMethod: selectedPaymentMethod,
+      };
+
+      setLastSaleReceipt(receiptData);
+
       toast({
         title: "Sale Complete",
         description: `Sale ${saleNumber} processed successfully`,
       });
 
-      // Reset
+      // Reset cart but keep receipt available
       setCart([]);
       setSelectedCustomer(null);
       setIsPaymentDialogOpen(false);
       setAmountReceived("");
       setSelectedPaymentMethod("cash");
+      
+      // Show receipt dialog
+      setIsReceiptOpen(true);
 
       // Refresh products to get updated stock
       loadData();
@@ -730,6 +784,13 @@ export default function POSPage() {
           isOpen={isScannerOpen}
           onClose={() => setIsScannerOpen(false)}
           onScan={handleBarcodeScan}
+        />
+
+        {/* Receipt Dialog */}
+        <ReceiptDialog
+          isOpen={isReceiptOpen}
+          onClose={() => setIsReceiptOpen(false)}
+          receipt={lastSaleReceipt}
         />
       </div>
     </AppLayout>
