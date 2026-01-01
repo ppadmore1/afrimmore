@@ -12,6 +12,8 @@ import InventoryPage from "./pages/InventoryPage";
 import POSPage from "./pages/POSPage";
 import ProductsPage from "./pages/ProductsPage";
 import ProductForm from "./pages/ProductForm";
+import QuotationsPage from "./pages/QuotationsPage";
+import QuotationForm from "./pages/QuotationForm";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +33,10 @@ const App = () => (
             <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
             <Route path="/products/:id/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/quotations" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/quotations" element={<ProtectedRoute><QuotationsPage /></ProtectedRoute>} />
+            <Route path="/quotations/new" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+            <Route path="/quotations/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+            <Route path="/quotations/:id/edit" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
             <Route path="/delivery-notes" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
