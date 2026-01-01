@@ -1,9 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Invoice, Customer } from './db';
+import { Invoice, Customer, Payment } from './supabase-db';
 import { format } from 'date-fns';
 
-export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF {
+export function generateInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): jsPDF {
   const doc = new jsPDF();
   
   // Colors
@@ -22,7 +22,7 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(invoice.invoiceNumber, 190, 28, { align: 'right' });
+  doc.text(invoice.invoice_number, 190, 28, { align: 'right' });
 
   // Company Info (left side)
   doc.setTextColor(...textColor);
@@ -46,16 +46,15 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   doc.text('Status:', detailsX, 69);
   
   doc.setFont('helvetica', 'normal');
-  doc.text(format(new Date(invoice.createdAt), 'MMM dd, yyyy'), 160, 55);
-  doc.text(format(new Date(invoice.dueDate), 'MMM dd, yyyy'), 160, 62);
+  doc.text(format(new Date(invoice.created_at), 'MMM dd, yyyy'), 160, 55);
+  doc.text(invoice.due_date ? format(new Date(invoice.due_date), 'MMM dd, yyyy') : '-', 160, 62);
   
   // Status badge
   const statusColors: Record<string, [number, number, number]> = {
     paid: [34, 197, 94],
-    partial: [234, 179, 8],
+    pending: [234, 179, 8],
     draft: [156, 163, 175],
-    sent: [59, 130, 246],
-    overdue: [239, 68, 68],
+    approved: [59, 130, 246],
     cancelled: [107, 114, 128],
   };
   const statusColor = statusColors[invoice.status] || mutedColor;
@@ -70,34 +69,33 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   doc.text('Bill To:', 20, 95);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(invoice.customerName, 20, 103);
+  doc.text(invoice.customer_name, 20, 103);
   
-  if (customer) {
-    doc.setTextColor(...mutedColor);
-    if (customer.email) doc.text(customer.email, 20, 110);
-    if (customer.phone) doc.text(customer.phone, 20, 117);
-    if (customer.billingAddress) {
-      const addressLines = customer.billingAddress.split('\n');
-      addressLines.forEach((line, i) => {
-        doc.text(line, 20, 124 + (i * 6));
-      });
-    }
+  doc.setTextColor(...mutedColor);
+  if (invoice.customer_email) doc.text(invoice.customer_email, 20, 110);
+  if (invoice.customer_address) {
+    const addressLines = invoice.customer_address.split('\n');
+    let yPos = 117;
+    addressLines.forEach((line) => {
+      doc.text(line, 20, yPos);
+      yPos += 6;
+    });
   }
 
   // Items table
-  const tableData = invoice.items.map(item => [
-    item.productName,
-    item.description || '-',
+  const items = invoice.items || [];
+  const tableData = items.map(item => [
+    item.description,
     item.quantity.toString(),
-    `$${item.unitPrice.toFixed(2)}`,
-    item.tax > 0 ? `${item.tax}%` : '-',
-    item.discount > 0 ? `${item.discount}%` : '-',
+    `$${item.unit_price.toFixed(2)}`,
+    item.tax_rate ? `${item.tax_rate}%` : '-',
+    item.discount ? `${item.discount}%` : '-',
     `$${item.total.toFixed(2)}`,
   ]);
 
   autoTable(doc, {
-    startY: 140,
-    head: [['Product', 'Description', 'Qty', 'Unit Price', 'Tax', 'Discount', 'Total']],
+    startY: 135,
+    head: [['Description', 'Qty', 'Unit Price', 'Tax', 'Discount', 'Total']],
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -114,13 +112,12 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
       fillColor: [249, 250, 251],
     },
     columnStyles: {
-      0: { cellWidth: 35 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 15, halign: 'center' },
-      3: { cellWidth: 25, halign: 'right' },
-      4: { cellWidth: 18, halign: 'center' },
-      5: { cellWidth: 20, halign: 'center' },
-      6: { cellWidth: 25, halign: 'right' },
+      0: { cellWidth: 60 },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 30, halign: 'right' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 25, halign: 'center' },
+      5: { cellWidth: 30, halign: 'right' },
     },
     margin: { left: 20, right: 20 },
   });
@@ -136,8 +133,8 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   
   doc.setTextColor(...textColor);
   doc.text(`$${invoice.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
-  doc.text(`$${invoice.taxTotal.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
-  doc.text(`-$${invoice.discountTotal.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
+  doc.text(`$${invoice.tax_total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
+  doc.text(`-$${invoice.discount_total.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
   
   // Total line
   doc.setDrawColor(...primaryColor);
@@ -149,29 +146,46 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   doc.setTextColor(...primaryColor);
   doc.text(`$${invoice.total.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
 
+  // Amount Paid & Balance
+  if (payments && payments.length > 0) {
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    const balance = invoice.total - totalPaid;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(34, 197, 94);
+    doc.text('Amount Paid:', 130, finalY + 42);
+    doc.text(`$${totalPaid.toFixed(2)}`, 190, finalY + 42, { align: 'right' });
+    
+    doc.setTextColor(...textColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Balance Due:', 130, finalY + 50);
+    doc.text(`$${balance.toFixed(2)}`, 190, finalY + 50, { align: 'right' });
+  }
+
   // Payment Terms & Notes
-  if (invoice.paymentTerms || invoice.notes) {
-    const notesY = finalY + 50;
+  const notesStartY = payments && payments.length > 0 ? finalY + 65 : finalY + 50;
+  
+  if (invoice.payment_terms || invoice.notes) {
     doc.setFontSize(10);
     doc.setTextColor(...textColor);
     
-    if (invoice.paymentTerms) {
+    if (invoice.payment_terms) {
       doc.setFont('helvetica', 'bold');
-      doc.text('Payment Terms:', 20, notesY);
+      doc.text('Payment Terms:', 20, notesStartY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...mutedColor);
-      doc.text(invoice.paymentTerms, 20, notesY + 7);
+      doc.text(invoice.payment_terms, 20, notesStartY + 7);
     }
     
     if (invoice.notes) {
-      const notesStartY = invoice.paymentTerms ? notesY + 20 : notesY;
+      const notesY = invoice.payment_terms ? notesStartY + 20 : notesStartY;
       doc.setTextColor(...textColor);
       doc.setFont('helvetica', 'bold');
-      doc.text('Notes:', 20, notesStartY);
+      doc.text('Notes:', 20, notesY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...mutedColor);
       const noteLines = doc.splitTextToSize(invoice.notes, 170);
-      doc.text(noteLines, 20, notesStartY + 7);
+      doc.text(noteLines, 20, notesY + 7);
     }
   }
 
@@ -183,13 +197,13 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer): jsPDF
   return doc;
 }
 
-export function downloadInvoicePDF(invoice: Invoice, customer?: Customer): void {
-  const doc = generateInvoicePDF(invoice, customer);
-  doc.save(`${invoice.invoiceNumber}.pdf`);
+export function downloadInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): void {
+  const doc = generateInvoicePDF(invoice, customer, payments);
+  doc.save(`${invoice.invoice_number}.pdf`);
 }
 
-export function printInvoice(invoice: Invoice, customer?: Customer): void {
-  const doc = generateInvoicePDF(invoice, customer);
+export function printInvoice(invoice: Invoice, customer?: Customer, payments?: Payment[]): void {
+  const doc = generateInvoicePDF(invoice, customer, payments);
   doc.autoPrint();
   window.open(doc.output('bloburl'), '_blank');
 }

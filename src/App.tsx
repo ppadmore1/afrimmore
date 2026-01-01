@@ -16,6 +16,9 @@ import QuotationsPage from "./pages/QuotationsPage";
 import QuotationForm from "./pages/QuotationForm";
 import DeliveryNotesPage from "./pages/DeliveryNotesPage";
 import DeliveryNoteForm from "./pages/DeliveryNoteForm";
+import InvoicesPage from "./pages/InvoicesPage";
+import InvoiceForm from "./pages/InvoiceForm";
+import InvoiceDetail from "./pages/InvoiceDetail";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +37,10 @@ const App = () => (
             <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
             <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
             <Route path="/products/:id/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
+            <Route path="/invoices/new" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
+            <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+            <Route path="/invoices/:id/edit" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><QuotationsPage /></ProtectedRoute>} />
             <Route path="/quotations/new" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
             <Route path="/quotations/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
