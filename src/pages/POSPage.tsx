@@ -15,7 +15,9 @@ import {
   Check,
   Barcode,
   Package,
+  Camera,
 } from "lucide-react";
+import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +77,7 @@ export default function POSPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("cash");
   const [amountReceived, setAmountReceived] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
-
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   useEffect(() => {
     loadData();
   }, []);
@@ -189,7 +191,18 @@ export default function POSPage() {
     }
   };
 
-  // Calculate totals
+  const handleBarcodeScan = (code: string) => {
+    const product = products.find((p) => p.barcode === code || p.sku === code);
+    if (product) {
+      addToCart(product);
+    } else {
+      toast({
+        title: "Product Not Found",
+        description: `No product found with barcode/SKU: ${code}`,
+        variant: "destructive",
+      });
+    }
+  };
   const subtotal = cart.reduce((sum, item) => {
     const itemTotal = item.product.unit_price * item.quantity;
     const discountAmount = (itemTotal * item.discount) / 100;
@@ -343,7 +356,7 @@ export default function POSPage() {
         {/* Products Section */}
         <div className="flex-1 flex flex-col min-h-0">
           <div className="space-y-4 mb-4">
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
               {/* Barcode Scanner Input */}
               <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
                 <div className="relative">
@@ -357,6 +370,15 @@ export default function POSPage() {
                 </div>
                 <Button type="submit" size="icon" variant="secondary">
                   <Search className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setIsScannerOpen(true)}
+                  title="Scan with camera"
+                >
+                  <Camera className="w-4 h-4" />
                 </Button>
               </form>
 
@@ -702,6 +724,13 @@ export default function POSPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Barcode Scanner */}
+        <BarcodeScanner
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleBarcodeScan}
+        />
       </div>
     </AppLayout>
   );
