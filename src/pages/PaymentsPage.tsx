@@ -1,26 +1,26 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { 
-  Plus, 
-  Search, 
-  CreditCard, 
-  Trash2,
-  FileText,
-} from "lucide-react";
 import { format } from "date-fns";
-import { v4 as uuidv4 } from "uuid";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -29,31 +29,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  getAllPayments, 
-  getAllInvoices,
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Search,
+  Plus,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Building,
+  Receipt,
+  DollarSign,
+  TrendingUp,
+  FileText,
+  Trash2,
+} from "lucide-react";
+import {
+  getPayments,
+  getInvoices,
   addPayment,
   deletePayment,
-  updateInvoice,
-  getPaymentsByInvoice,
-  Payment, 
-  Invoice,
-} from "@/lib/db";
-import { toast } from "@/hooks/use-toast";
+  getNextPaymentNumber,
+  type Payment,
+  type Invoice,
+} from "@/lib/supabase-db";
+
+const paymentMethodIcons: Record<string, React.ReactNode> = {
+  cash: <Banknote className="h-4 w-4" />,
+  card: <CreditCard className="h-4 w-4" />,
+  mobile_money: <Smartphone className="h-4 w-4" />,
+  bank_transfer: <Building className="h-4 w-4" />,
+  other: <Receipt className="h-4 w-4" />,
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  cash: "Cash",
+  card: "Card",
+  mobile_money: "Mobile Money",
+  bank_transfer: "Bank Transfer",
+  other: "Other",
+};
 
 export default function PaymentsPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Form state
+  // New payment form state
+  const [paymentNumber, setPaymentNumber] = useState("");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("Bank Transfer");
+  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [reference, setReference] = useState("");
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     loadData();
@@ -61,95 +97,124 @@ export default function PaymentsPage() {
 
   async function loadData() {
     try {
+      setLoading(true);
       const [paymentsData, invoicesData] = await Promise.all([
-        getAllPayments(),
-        getAllInvoices(),
+        getPayments(),
+        getInvoices(),
       ]);
-      setPayments(paymentsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setInvoices(invoicesData.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled'));
+      setPayments(paymentsData);
+      setInvoices(invoicesData.filter(i => i.status !== 'paid' && i.status !== 'cancelled'));
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Failed to load data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load payments",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function openNewPaymentDialog() {
+    try {
+      const nextNumber = await getNextPaymentNumber();
+      setPaymentNumber(nextNumber);
+      setSelectedInvoiceId("");
+      setAmount("");
+      setPaymentMethod("cash");
+      setReference("");
+      setNotes("");
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to get payment number:", error);
+    }
+  }
 
-    if (!selectedInvoiceId || !amount) {
-      toast({ title: "Please fill in all required fields", variant: "destructive" });
+  function handleInvoiceSelect(invoiceId: string) {
+    setSelectedInvoiceId(invoiceId);
+    if (invoiceId) {
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (invoice) {
+        const remaining = invoice.total - invoice.amount_paid;
+        setAmount(remaining.toFixed(2));
+      }
+    }
+  }
+
+  async function handleSubmit() {
+    if (!amount || parseFloat(amount) <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      const payment: Payment = {
-        id: uuidv4(),
-        invoiceId: selectedInvoiceId,
+      setSaving(true);
+      await addPayment({
+        payment_number: paymentNumber,
+        invoice_id: selectedInvoiceId || null,
+        pos_sale_id: null,
         amount: parseFloat(amount),
-        method,
-        reference: reference.trim(),
-        date: new Date(date),
-        createdAt: new Date(),
-      };
+        payment_method: paymentMethod as Payment['payment_method'],
+        reference: reference || null,
+        notes: notes || null,
+        created_by: null,
+      });
 
-      await addPayment(payment);
+      toast({
+        title: "Success",
+        description: "Payment recorded successfully",
+      });
 
-      // Update invoice status
-      const invoice = invoices.find(inv => inv.id === selectedInvoiceId);
-      if (invoice) {
-        const existingPayments = await getPaymentsByInvoice(selectedInvoiceId);
-        const totalPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0) + payment.amount;
-        
-        if (totalPaid >= invoice.total) {
-          await updateInvoice({ ...invoice, status: 'paid' });
-        } else if (totalPaid > 0) {
-          await updateInvoice({ ...invoice, status: 'partial' });
-        }
-      }
-
-      toast({ title: "Payment recorded successfully" });
-      setDialogOpen(false);
+      setIsDialogOpen(false);
       loadData();
-      
-      // Reset form
-      setSelectedInvoiceId("");
-      setAmount("");
-      setMethod("Bank Transfer");
-      setReference("");
-      setDate(format(new Date(), "yyyy-MM-dd"));
     } catch (error) {
-      toast({ title: "Error recording payment", variant: "destructive" });
+      console.error("Failed to save payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (confirm("Are you sure you want to delete this payment?")) {
-      try {
-        await deletePayment(id);
-        setPayments(payments.filter(p => p.id !== id));
-        toast({ title: "Payment deleted successfully" });
-      } catch (error) {
-        toast({ title: "Error deleting payment", variant: "destructive" });
-      }
+    if (!confirm("Are you sure you want to delete this payment?")) return;
+
+    try {
+      await deletePayment(id);
+      toast({
+        title: "Success",
+        description: "Payment deleted",
+      });
+      loadData();
+    } catch (error) {
+      console.error("Failed to delete payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete payment",
+        variant: "destructive",
+      });
     }
   }
 
-  const getInvoiceNumber = (invoiceId: string) => {
-    const allInvoices = [...invoices];
-    getAllInvoices().then(all => {
-      const invoice = all.find(inv => inv.id === invoiceId);
-      return invoice?.invoiceNumber || "Unknown";
-    });
-    return "Loading...";
-  };
-
   const filteredPayments = payments.filter(payment =>
-    payment.method.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    payment.reference.toLowerCase().includes(searchQuery.toLowerCase())
+    payment.payment_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    payment.reference?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalReceived = payments.reduce((sum, p) => sum + p.amount, 0);
+  // Stats
+  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+  const todayPayments = payments.filter(p => 
+    new Date(p.created_at).toDateString() === new Date().toDateString()
+  );
+  const todayTotal = todayPayments.reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <AppLayout>
@@ -161,39 +226,208 @@ export default function PaymentsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Payments</h1>
-            <p className="text-muted-foreground mt-1">Track and manage payments</p>
+            <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
+            <p className="text-muted-foreground">Track and manage all payments</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Record Payment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader>
-                <DialogTitle>Record Payment</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <Button onClick={openNewPaymentDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="text-2xl font-bold">${totalPayments.toFixed(2)}</div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Today's Payments</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="text-2xl font-bold">${todayTotal.toFixed(2)}</div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Transactions Today</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="text-2xl font-bold">{todayPayments.length}</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search payments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        {/* Payments Table */}
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-6 space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : filteredPayments.length === 0 ? (
+              <div className="p-12 text-center">
+                <Receipt className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <h3 className="mt-4 text-lg font-semibold">No payments found</h3>
+                <p className="text-muted-foreground">
+                  {searchQuery ? "Try a different search term" : "Record your first payment"}
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Payment #</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPayments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">
+                        {payment.payment_number}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(payment.created_at), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="gap-1">
+                          {paymentMethodIcons[payment.payment_method]}
+                          {paymentMethodLabels[payment.payment_method]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {payment.invoice_id ? (
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto"
+                            onClick={() => navigate(`/invoices/${payment.invoice_id}`)}
+                          >
+                            <FileText className="mr-1 h-3 w-3" />
+                            View Invoice
+                          </Button>
+                        ) : payment.pos_sale_id ? (
+                          <span className="text-muted-foreground text-sm">POS Sale</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {payment.reference || "-"}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${payment.amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(payment.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* New Payment Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+              <DialogDescription>
+                Record a new payment for an invoice or as a standalone payment.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Invoice *</Label>
-                  <Select value={selectedInvoiceId} onValueChange={setSelectedInvoiceId}>
+                  <Label>Payment Number</Label>
+                  <Input value={paymentNumber} readOnly className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select invoice" />
+                      <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      {invoices.map((invoice) => (
-                        <SelectItem key={invoice.id} value={invoice.id}>
-                          {invoice.invoiceNumber} - {invoice.customerName} (${invoice.total.toFixed(2)})
-                        </SelectItem>
-                      ))}
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              <div className="space-y-2">
+                <Label>Invoice (Optional)</Label>
+                <Select value={selectedInvoiceId} onValueChange={handleInvoiceSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an invoice..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Invoice</SelectItem>
+                    {invoices.map((invoice) => (
+                      <SelectItem key={invoice.id} value={invoice.id}>
+                        {invoice.invoice_number} - {invoice.customer_name} (${(invoice.total - invoice.amount_paid).toFixed(2)} due)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Amount *</Label>
+                  <Label>Amount</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -203,150 +437,37 @@ export default function PaymentsPage() {
                     placeholder="0.00"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select value={method} onValueChange={setMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="Credit Card">Credit Card</SelectItem>
-                      <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="Check">Check</SelectItem>
-                      <SelectItem value="PayPal">PayPal</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="space-y-2">
                   <Label>Reference</Label>
                   <Input
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
-                    placeholder="Transaction reference or note"
+                    placeholder="e.g., Check #123"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Record Payment</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Stats */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl gradient-success flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-success-foreground" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Received</p>
-                <p className="text-3xl font-bold font-mono">
-                  ${totalReceived.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </p>
+
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any notes..."
+                  rows={2}
+                />
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Search */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search payments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payments List */}
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-8 space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse flex items-center gap-4">
-                    <div className="h-12 w-12 bg-muted rounded-lg" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-1/4" />
-                      <div className="h-3 bg-muted rounded w-1/3" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredPayments.length === 0 ? (
-              <div className="text-center py-12">
-                <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  {payments.length === 0 ? "No payments yet" : "No matching payments"}
-                </h3>
-                <p className="text-muted-foreground">
-                  {payments.length === 0 ? "Record your first payment to track it here" : "Try adjusting your search"}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {filteredPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
-                      <CreditCard className="w-6 h-6 text-success" />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{payment.method}</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {payment.reference || "No reference"} • {format(new Date(payment.date), "MMM dd, yyyy")}
-                      </p>
-                    </div>
-
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-semibold font-mono text-success">
-                        +${payment.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(payment.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={saving}>
+                {saving ? "Saving..." : "Record Payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </AppLayout>
   );
