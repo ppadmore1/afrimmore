@@ -16,6 +16,8 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,7 @@ import {
   type Invoice,
   type POSSale,
 } from "@/lib/supabase-db";
+import { useSendPaymentReminder } from "@/hooks/useSendPaymentReminder";
 import { format } from "date-fns";
 
 export default function CustomerDetail() {
@@ -51,6 +54,7 @@ export default function CustomerDetail() {
   const [transactions, setTransactions] = useState<CustomerPaymentHistory[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [posSales, setPosSales] = useState<POSSale[]>([]);
+  const { sendReminder, sending } = useSendPaymentReminder();
 
   useEffect(() => {
     if (id) {
@@ -76,6 +80,27 @@ export default function CustomerDetail() {
       setLoading(false);
     }
   }
+
+  const handleSendReminder = async () => {
+    if (!balance) return;
+    
+    const outstandingInvoices = invoices.filter(inv => 
+      inv.status !== 'paid' && inv.status !== 'cancelled' && inv.total - inv.amount_paid > 0
+    );
+    
+    await sendReminder({
+      customerId: balance.customer.id,
+      customerName: balance.customer.name,
+      customerEmail: balance.customer.email || '',
+      outstandingBalance: balance.outstandingBalance,
+      invoices: outstandingInvoices.map(inv => ({
+        invoiceNumber: inv.invoice_number,
+        total: inv.total,
+        amountPaid: inv.amount_paid,
+        dueDate: inv.due_date || undefined,
+      })),
+    });
+  };
 
   const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
     paid: { variant: "default", label: "Paid" },
@@ -151,7 +176,22 @@ export default function CustomerDetail() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {outstandingBalance > 0 && customer.email && (
+              <Button 
+                variant="outline" 
+                className="gap-2 text-orange-600 border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                onClick={handleSendReminder}
+                disabled={sending}
+              >
+                {sending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Send Reminder
+              </Button>
+            )}
             <Link to={`/invoices/new?customer=${id}`}>
               <Button variant="outline" className="gap-2">
                 <FileText className="w-4 h-4" />
