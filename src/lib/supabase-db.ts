@@ -845,3 +845,193 @@ export async function getLowStockProducts(): Promise<Product[]> {
   // Filter in JS since we can't compare columns directly
   return (data || []).filter(p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 10));
 }
+
+// Customer Balance Tracking
+export interface CustomerBalance {
+  customer: Customer;
+  totalInvoiced: number;
+  totalPaid: number;
+  outstandingBalance: number;
+  invoiceCount: number;
+  paidInvoiceCount: number;
+}
+
+export interface CustomerPaymentHistory {
+  id: string;
+  date: string;
+  type: 'invoice' | 'payment' | 'pos_sale';
+  reference: string;
+  description: string;
+  amount: number;
+  balance: number;
+}
+
+export async function getCustomerBalance(customerId: string): Promise<CustomerBalance | null> {
+  // Get customer
+  const { data: customer, error: customerError } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('id', customerId)
+    .single();
+  
+  if (customerError || !customer) return null;
+  
+  // Get all invoices for this customer
+  const { data: invoices, error: invoicesError } = await supabase
+    .from('invoices')
+    .select('id, total, amount_paid, status')
+    .eq('customer_id', customerId);
+  
+  if (invoicesError) throw invoicesError;
+  
+  const totalInvoiced = invoices?.reduce((sum, inv) => sum + (inv.total || 0), 0) || 0;
+  const totalPaid = invoices?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0;
+  const paidInvoiceCount = invoices?.filter(inv => inv.status === 'paid').length || 0;
+  
+  return {
+    customer,
+    totalInvoiced,
+    totalPaid,
+    outstandingBalance: totalInvoiced - totalPaid,
+    invoiceCount: invoices?.length || 0,
+    paidInvoiceCount,
+  };
+}
+
+export async function getCustomerInvoices(customerId: string): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getCustomerPayments(customerId: string): Promise<Payment[]> {
+  // Get invoices for this customer first
+  const { data: invoices } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('customer_id', customerId);
+  
+  const invoiceIds = invoices?.map(inv => inv.id) || [];
+  
+  if (invoiceIds.length === 0) return [];
+  
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .in('invoice_id', invoiceIds)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getCustomerPOSSales(customerId: string): Promise<POSSale[]> {
+  const { data, error } = await supabase
+    .from('pos_sales')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getCustomerTransactionHistory(customerId: string): Promise<CustomerPaymentHistory[]> {
+  const [invoices, payments, posSales] = await Promise.all([
+    getCustomerInvoices(customerId),
+    getCustomerPayments(customerId),
+    getCustomerPOSSales(customerId),
+  ]);
+  
+  const transactions: CustomerPaymentHistory[] = [];
+  
+  // Add invoices as debits
+  invoices.forEach(inv => {
+    transactions.push({
+      id: inv.id,
+      date: inv.created_at,
+      type: 'invoice',
+      reference: inv.invoice_number,
+      description: `Invoice created`,
+      amount: inv.total,
+      balance: 0, // Will be calculated below
+    });
+  });
+  
+  // Add payments as credits
+  payments.forEach(pay => {
+    const invoice = invoices.find(i => i.id === pay.invoice_id);
+    transactions.push({
+      id: pay.id,
+      date: pay.created_at,
+      type: 'payment',
+      reference: pay.payment_number,
+      description: invoice ? `Payment for ${invoice.invoice_number}` : 'Payment received',
+      amount: -pay.amount, // Negative for credits
+      balance: 0,
+    });
+  });
+  
+  // Add POS sales
+  posSales.forEach(sale => {
+    transactions.push({
+      id: sale.id,
+      date: sale.created_at,
+      type: 'pos_sale',
+      reference: sale.sale_number,
+      description: `POS Sale (Paid: ${sale.payment_method})`,
+      amount: 0, // POS sales are paid immediately, no balance impact
+      balance: 0,
+    });
+  });
+  
+  // Sort by date descending
+  transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  // Calculate running balance (from oldest to newest, then reverse)
+  const sortedAsc = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  let runningBalance = 0;
+  sortedAsc.forEach(t => {
+    runningBalance += t.amount;
+    t.balance = runningBalance;
+  });
+  
+  return transactions;
+}
+
+export async function getAllCustomerBalances(): Promise<CustomerBalance[]> {
+  const { data: customers, error } = await supabase
+    .from('customers')
+    .select('*')
+    .order('name');
+  
+  if (error) throw error;
+  if (!customers) return [];
+  
+  // Get all invoices
+  const { data: allInvoices } = await supabase
+    .from('invoices')
+    .select('customer_id, total, amount_paid, status');
+  
+  // Calculate balances for each customer
+  return customers.map(customer => {
+    const customerInvoices = allInvoices?.filter(inv => inv.customer_id === customer.id) || [];
+    const totalInvoiced = customerInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalPaid = customerInvoices.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0);
+    const paidInvoiceCount = customerInvoices.filter(inv => inv.status === 'paid').length;
+    
+    return {
+      customer,
+      totalInvoiced,
+      totalPaid,
+      outstandingBalance: totalInvoiced - totalPaid,
+      invoiceCount: customerInvoices.length,
+      paidInvoiceCount,
+    };
+  });
+}
