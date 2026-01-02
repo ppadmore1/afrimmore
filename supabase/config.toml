@@ -1,7 +1,7 @@
 project_id = "exxrhowfpflufhxdcavo"
 
 [functions.send-document-email]
-verify_jwt = true
+verify_jwt = false
 
-[functions.send-document-email]
+[functions.send-payment-reminder]
 verify_jwt = false
