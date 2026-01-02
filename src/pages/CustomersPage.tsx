@@ -10,22 +10,30 @@ import {
   Trash2,
   Mail,
   Phone,
+  Eye,
+  DollarSign,
+  AlertCircle,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAllCustomers, deleteCustomer, Customer } from "@/lib/db";
+import { 
+  getAllCustomerBalances, 
+  deleteCustomer, 
+  type CustomerBalance 
+} from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerBalances, setCustomerBalances] = useState<CustomerBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -35,8 +43,8 @@ export default function CustomersPage() {
 
   async function loadCustomers() {
     try {
-      const data = await getAllCustomers();
-      setCustomers(data.sort((a, b) => a.name.localeCompare(b.name)));
+      const data = await getAllCustomerBalances();
+      setCustomerBalances(data.sort((a, b) => a.customer.name.localeCompare(b.customer.name)));
     } catch (error) {
       console.error("Error loading customers:", error);
     } finally {
@@ -44,11 +52,13 @@ export default function CustomersPage() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
     if (confirm("Are you sure you want to delete this customer?")) {
       try {
         await deleteCustomer(id);
-        setCustomers(customers.filter(c => c.id !== id));
+        setCustomerBalances(customerBalances.filter(c => c.customer.id !== id));
         toast({ title: "Customer deleted successfully" });
       } catch (error) {
         toast({ title: "Error deleting customer", variant: "destructive" });
@@ -56,10 +66,13 @@ export default function CustomersPage() {
     }
   }
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCustomers = customerBalances.filter(cb =>
+    cb.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (cb.customer.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const customersWithBalance = filteredCustomers.filter(cb => cb.outstandingBalance > 0);
+  const totalOutstanding = filteredCustomers.reduce((sum, cb) => sum + cb.outstandingBalance, 0);
 
   return (
     <AppLayout>
@@ -80,6 +93,47 @@ export default function CustomersPage() {
               Add Customer
             </Button>
           </Link>
+        </div>
+
+        {/* Stats Summary */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Customers</p>
+                <p className="text-2xl font-bold">{customerBalances.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className={customersWithBalance.length > 0 ? "border-orange-500/50" : ""}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">With Outstanding</p>
+                <p className="text-2xl font-bold text-orange-600">{customersWithBalance.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Outstanding</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  ${totalOutstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search */}
@@ -115,14 +169,14 @@ export default function CustomersPage() {
             <CardContent className="py-12 text-center">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                {customers.length === 0 ? "No customers yet" : "No matching customers"}
+                {customerBalances.length === 0 ? "No customers yet" : "No matching customers"}
               </h3>
               <p className="text-muted-foreground mb-4">
-                {customers.length === 0 
+                {customerBalances.length === 0 
                   ? "Add your first customer to get started" 
                   : "Try adjusting your search"}
               </p>
-              {customers.length === 0 && (
+              {customerBalances.length === 0 && (
                 <Link to="/customers/new">
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
@@ -134,62 +188,81 @@ export default function CustomersPage() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredCustomers.map((customer) => (
-              <Card key={customer.id} className="group">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                        {customer.name.charAt(0).toUpperCase()}
+            {filteredCustomers.map((cb) => (
+              <Link key={cb.customer.id} to={`/customers/${cb.customer.id}`}>
+                <Card className="group hover:border-primary/50 transition-colors cursor-pointer h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                          {cb.customer.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-foreground truncate">{cb.customer.name}</h3>
+                          {cb.customer.email && (
+                            <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {cb.customer.email}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-foreground truncate">{customer.name}</h3>
-                        {customer.email && (
-                          <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {customer.email}
-                          </p>
-                        )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                          <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-popover">
+                          <DropdownMenuItem asChild>
+                            <Link to={`/customers/${cb.customer.id}`} className="cursor-pointer">
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to={`/customers/${cb.customer.id}/edit`} className="cursor-pointer">
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => handleDelete(cb.customer.id, e as unknown as React.MouseEvent)}
+                            className="text-destructive cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {cb.customer.phone && (
+                      <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="w-4 h-4" />
+                        {cb.customer.phone}
                       </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-popover">
-                        <DropdownMenuItem asChild>
-                          <Link to={`/customers/${customer.id}/edit`} className="cursor-pointer">
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(customer.id)}
-                          className="text-destructive cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                    )}
 
-                  {customer.phone && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      {customer.phone}
+                    {/* Balance Info */}
+                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">{cb.invoiceCount} invoices</span>
+                      </div>
+                      {cb.outstandingBalance > 0 ? (
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                          <DollarSign className="w-3 h-3 mr-1" />
+                          {cb.outstandingBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} due
+                        </Badge>
+                      ) : cb.totalPaid > 0 ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          All paid
+                        </Badge>
+                      ) : null}
                     </div>
-                  )}
-
-                  {customer.billingAddress && (
-                    <p className="mt-2 text-sm text-muted-foreground truncate">
-                      {customer.billingAddress.split('\n')[0]}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}
