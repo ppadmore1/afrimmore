@@ -10,9 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from '@/hooks/use-toast';
 import { Store, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 
-const emailSchema = z.string().email('Invalid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
-const nameSchema = z.string().min(2, 'Name must be at least 2 characters');
+const emailSchema = z.string().email('Invalid email address').max(255, 'Email is too long');
+const passwordSchema = z.string()
+  .min(10, 'Password must be at least 10 characters')
+  .max(128, 'Password must be less than 128 characters')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[0-9]/, 'Password must contain a number');
+const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -245,7 +250,7 @@ export default function AuthPage() {
                     <Input
                       id="password"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10"
@@ -253,6 +258,11 @@ export default function AuthPage() {
                   </div>
                   {errors.password && (
                     <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                  {!isLogin && !errors.password && (
+                    <p className="text-xs text-muted-foreground">
+                      Min 10 characters with uppercase, lowercase, and number
+                    </p>
                   )}
                 </div>
                 
