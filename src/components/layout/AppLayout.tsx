@@ -15,10 +15,12 @@ import {
   LogOut,
   Settings,
   User,
+  Bell,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -29,6 +31,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useLowStockCheck } from "@/components/LowStockAlert";
+import { toast } from "@/hooks/use-toast";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -49,7 +54,28 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [alertShown, setAlertShown] = useState(false);
   const { user, signOut } = useAuth();
+  const { lowStockCount, outOfStockCount, criticalProducts, hasAlerts } = useLowStockCheck();
+
+  // Show toast notification for low stock on first load
+  useEffect(() => {
+    if (!alertShown && hasAlerts && (lowStockCount > 0 || outOfStockCount > 0)) {
+      setAlertShown(true);
+      
+      const totalAlerts = lowStockCount + outOfStockCount;
+      const description = outOfStockCount > 0 
+        ? `${outOfStockCount} out of stock, ${lowStockCount} running low`
+        : `${lowStockCount} products running low on stock`;
+      
+      toast({
+        title: `⚠️ Low Stock Alert (${totalAlerts} items)`,
+        description,
+        variant: "destructive",
+        duration: 8000,
+      });
+    }
+  }, [hasAlerts, lowStockCount, outOfStockCount, alertShown]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,12 +84,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   const userInitials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
     : user?.email?.substring(0, 2).toUpperCase() || 'U';
+  
+  const totalAlertCount = lowStockCount + outOfStockCount;
 
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
-        <div className="p-6">
+        <div className="p-6 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-primary-foreground" />
@@ -73,6 +101,21 @@ export function AppLayout({ children }: AppLayoutProps) {
               <p className="text-xs text-sidebar-foreground/60">Business Management</p>
             </div>
           </Link>
+          
+          {/* Notification Bell */}
+          {hasAlerts && (
+            <Link to="/inventory" className="relative">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                <Bell className="h-5 w-5" />
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                >
+                  {totalAlertCount > 9 ? '9+' : totalAlertCount}
+                </Badge>
+              </Button>
+            </Link>
+          )}
         </div>
 
         <nav className="flex-1 px-4 py-2 overflow-y-auto">
@@ -80,6 +123,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || 
                 (item.path !== "/" && location.pathname.startsWith(item.path));
+              const isInventory = item.path === "/inventory";
+              const showAlertBadge = isInventory && hasAlerts;
               
               return (
                 <li key={item.path}>
@@ -89,11 +134,22 @@ export function AppLayout({ children }: AppLayoutProps) {
                       "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
                       isActive
                         ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                      showAlertBadge && !isActive && "bg-destructive/10 text-destructive hover:bg-destructive/20"
                     )}
                   >
-                    <item.icon className="w-5 h-5" />
-                    {item.label}
+                    <div className="relative">
+                      <item.icon className="w-5 h-5" />
+                      {showAlertBadge && (
+                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                      )}
+                    </div>
+                    <span className="flex-1">{item.label}</span>
+                    {showAlertBadge && (
+                      <Badge variant="destructive" className="text-xs h-5 px-1.5">
+                        {totalAlertCount}
+                      </Badge>
+                    )}
                   </Link>
                 </li>
               );
@@ -148,7 +204,21 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
             <span className="font-bold text-foreground">POSFlow</span>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {/* Mobile Notification Bell */}
+            {hasAlerts && (
+              <Link to="/inventory">
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px]"
+                  >
+                    {totalAlertCount > 9 ? '9+' : totalAlertCount}
+                  </Badge>
+                </Button>
+              </Link>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
