@@ -766,6 +766,21 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
+      process_pos_sale: {
+        Args: {
+          p_amount_paid: number
+          p_created_by: string
+          p_customer_id: string
+          p_customer_name: string
+          p_items: Json
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Returns: {
+          change_amount: number
+          sale_id: string
+          sale_number: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "staff" | "cashier"

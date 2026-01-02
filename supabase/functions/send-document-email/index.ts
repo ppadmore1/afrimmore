@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
@@ -230,6 +231,18 @@ function generateEmailHtml(data: DocumentEmailRequest): string {
   `;
 }
 
+// Validate email format
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 255;
+}
+
+// Sanitize string input
+function sanitizeString(input: string, maxLength: number = 1000): string {
+  if (typeof input !== 'string') return '';
+  return input.slice(0, maxLength).replace(/[<>]/g, '');
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-document-email function called");
 
@@ -239,9 +252,63 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Extract and validate authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(
+        JSON.stringify({ error: "Missing authorization" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create Supabase client with user's auth token
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase configuration");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("User not authenticated:", authError?.message);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Check if user has staff role
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+    
+    if (rolesError || !roles || roles.length === 0) {
+      console.error("User lacks required permissions:", rolesError?.message);
+      return new Response(
+        JSON.stringify({ error: "Insufficient permissions" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("User authenticated:", user.id, "with roles:", roles.map(r => r.role));
+
+    // Parse and validate request body
     const data: DocumentEmailRequest = await req.json();
     console.log("Received request:", { type: data.type, documentNumber: data.documentNumber, customerEmail: data.customerEmail });
 
+    // Validate required fields
     if (!data.customerEmail) {
       console.error("No customer email provided");
       return new Response(
@@ -250,16 +317,55 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const title = data.type === "invoice" ? "Invoice" : "Quotation";
-    const subject = `${title} ${data.documentNumber} from AFRIMMORE`;
+    // Validate email format
+    if (!isValidEmail(data.customerEmail)) {
+      console.error("Invalid email format:", data.customerEmail);
+      return new Response(
+        JSON.stringify({ error: "Invalid email format" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    const html = generateEmailHtml(data);
+    // Validate document type
+    if (!['invoice', 'quotation'].includes(data.type)) {
+      console.error("Invalid document type:", data.type);
+      return new Response(
+        JSON.stringify({ error: "Invalid document type" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    console.log("Sending email to:", data.customerEmail);
+    // Validate document number
+    if (!data.documentNumber || data.documentNumber.length > 50) {
+      console.error("Invalid document number");
+      return new Response(
+        JSON.stringify({ error: "Invalid document number" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Sanitize inputs for email generation
+    const sanitizedData: DocumentEmailRequest = {
+      ...data,
+      customerName: sanitizeString(data.customerName, 200),
+      documentNumber: sanitizeString(data.documentNumber, 50),
+      notes: data.notes ? sanitizeString(data.notes, 2000) : undefined,
+      items: data.items.map(item => ({
+        ...item,
+        description: sanitizeString(item.description, 500)
+      }))
+    };
+
+    const title = sanitizedData.type === "invoice" ? "Invoice" : "Quotation";
+    const subject = `${title} ${sanitizedData.documentNumber} from AFRIMMORE`;
+
+    const html = generateEmailHtml(sanitizedData);
+
+    console.log("Sending email to:", sanitizedData.customerEmail);
 
     const emailResponse = await resend.emails.send({
       from: "AFRIMMORE <onboarding@resend.dev>",
-      to: [data.customerEmail],
+      to: [sanitizedData.customerEmail],
       subject: subject,
       html: html,
     });
@@ -276,7 +382,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in send-document-email function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "Failed to send email" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

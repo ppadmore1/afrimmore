@@ -246,21 +246,7 @@ export default function POSPage() {
   const total = subtotal + taxTotal;
   const changeAmount = parseFloat(amountReceived) - total;
 
-  const generateSaleNumber = async () => {
-    const today = new Date();
-    const prefix = `POS-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-    
-    const { data } = await supabase
-      .from("pos_sales")
-      .select("sale_number")
-      .like("sale_number", `${prefix}%`)
-      .order("sale_number", { ascending: false })
-      .limit(1);
-
-    const lastNumber = data?.[0]?.sale_number;
-    const nextNum = lastNumber ? parseInt(lastNumber.split("-").pop() || "0") + 1 : 1;
-    return `${prefix}-${String(nextNum).padStart(4, "0")}`;
-  };
+  // Sale number is now generated atomically in the database function
 
   const processPayment = async () => {
     if (cart.length === 0) return;
@@ -276,77 +262,54 @@ export default function POSPage() {
     setProcessingPayment(true);
 
     try {
-      const saleNumber = await generateSaleNumber();
-      const paymentNumber = `PAY-${Date.now()}`;
+      // Prepare items data for atomic database function
+      const itemsData = cart.map(item => ({
+        product_id: item.product.id,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        discount: item.discount
+      }));
 
-      // Create POS sale
-      const { data: sale, error: saleError } = await supabase
-        .from("pos_sales")
-        .insert({
-          sale_number: saleNumber,
-          customer_id: selectedCustomer?.id || null,
-          customer_name: selectedCustomer?.name || null,
-          subtotal: subtotal,
-          tax_total: taxTotal,
-          discount_total: discountTotal,
-          total: total,
-          amount_paid: parseFloat(amountReceived) || total,
-          change_amount: Math.max(0, changeAmount),
-          payment_method: selectedPaymentMethod,
-          status: "paid",
-          created_by: user?.id || null,
-        })
-        .select()
-        .single();
-
-      if (saleError) throw saleError;
-
-      // Create sale items and update stock
-      for (const item of cart) {
-        const itemTotal = item.product.unit_price * item.quantity;
-        const discountAmount = (itemTotal * item.discount) / 100;
-        const taxAmount = ((itemTotal - discountAmount) * (item.product.tax_rate || 0)) / 100;
-
-        // Insert sale item
-        await supabase.from("pos_sale_items").insert({
-          sale_id: sale.id,
-          product_id: item.product.id,
-          product_name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.product.unit_price,
-          discount: item.discount,
-          tax_rate: item.product.tax_rate || 0,
-          total: itemTotal - discountAmount + taxAmount,
-        });
-
-        // Update stock
-        await supabase
-          .from("products")
-          .update({ stock_quantity: item.product.stock_quantity - item.quantity })
-          .eq("id", item.product.id);
-
-        // Record stock movement
-        await supabase.from("stock_movements").insert({
-          product_id: item.product.id,
-          quantity: -item.quantity,
-          movement_type: "sale",
-          reference_type: "pos_sale",
-          reference_id: sale.id,
-          created_by: user?.id || null,
-          notes: `POS Sale: ${saleNumber}`,
-        });
-      }
-
-      // Create payment record
-      await supabase.from("payments").insert({
-        payment_number: paymentNumber,
-        pos_sale_id: sale.id,
-        amount: total,
-        payment_method: selectedPaymentMethod,
-        created_by: user?.id || null,
+      // Call atomic database function that handles:
+      // - Server-side price/tax calculation from database
+      // - Stock validation with row locking
+      // - Sale number generation (no race conditions)
+      // - All inserts/updates in single transaction
+      const { data: result, error: rpcError } = await supabase.rpc('process_pos_sale', {
+        p_customer_id: selectedCustomer?.id || null,
+        p_customer_name: selectedCustomer?.name || null,
+        p_payment_method: selectedPaymentMethod,
+        p_amount_paid: parseFloat(amountReceived) || total,
+        p_created_by: user?.id || null,
+        p_items: itemsData
       });
 
-      // Prepare receipt data before resetting cart
+      if (rpcError) {
+        // Handle specific error messages
+        if (rpcError.message.includes('Insufficient stock')) {
+          toast({
+            title: "Insufficient Stock",
+            description: rpcError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (rpcError.message.includes('Unauthorized')) {
+          toast({
+            title: "Unauthorized",
+            description: "You must be logged in as staff to process sales",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw rpcError;
+      }
+
+      const saleData = result[0];
+      const saleNumber = saleData.sale_number;
+      const serverChangeAmount = Number(saleData.change_amount) || 0;
+
+      // Prepare receipt data
       const receiptData = {
         saleNumber,
         date: new Date(),
@@ -369,7 +332,7 @@ export default function POSPage() {
         discountTotal,
         total,
         amountPaid: parseFloat(amountReceived) || total,
-        changeAmount: Math.max(0, changeAmount),
+        changeAmount: serverChangeAmount,
         paymentMethod: selectedPaymentMethod,
       };
 
@@ -392,11 +355,11 @@ export default function POSPage() {
 
       // Refresh products to get updated stock
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing payment:", error);
       toast({
         title: "Error",
-        description: "Failed to process payment",
+        description: error.message || "Failed to process payment",
         variant: "destructive",
       });
     } finally {
