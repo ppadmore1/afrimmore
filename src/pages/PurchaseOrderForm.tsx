@@ -12,6 +12,8 @@ import {
   Search,
   PackageCheck,
   CheckCircle2,
+  History,
+  User,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -101,6 +103,22 @@ interface ReceiveItem {
   receiving_now: number;
 }
 
+interface GoodsReceipt {
+  id: string;
+  received_at: string;
+  received_by: string | null;
+  notes: string | null;
+  items: {
+    product_id: string;
+    product_name: string;
+    quantity_received: number;
+  }[];
+  profile?: {
+    full_name: string | null;
+    email: string | null;
+  };
+}
+
 type POStatus = "draft" | "submitted" | "confirmed" | "shipped" | "received" | "cancelled";
 
 export default function PurchaseOrderForm() {
@@ -138,6 +156,10 @@ export default function PurchaseOrderForm() {
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [receiveItems, setReceiveItems] = useState<ReceiveItem[]>([]);
   const [receiving, setReceiving] = useState(false);
+  const [receiveNotes, setReceiveNotes] = useState("");
+
+  // Receiving history
+  const [receivingHistory, setReceivingHistory] = useState<GoodsReceipt[]>([]);
 
   useEffect(() => {
     loadInitialData();
@@ -261,6 +283,66 @@ export default function PurchaseOrderForm() {
         quantity_received: item.quantity_received || 0,
         unit_cost: Number(item.unit_cost),
         total: Number(item.total),
+      }))
+    );
+
+    // Load receiving history
+    await loadReceivingHistory();
+  }
+
+  async function loadReceivingHistory() {
+    if (!id) return;
+
+    const { data: receipts, error } = await supabase
+      .from("goods_receipts")
+      .select(`
+        id,
+        received_at,
+        received_by,
+        notes,
+        goods_receipt_items (
+          product_id,
+          quantity_received
+        )
+      `)
+      .eq("purchase_order_id", id)
+      .order("received_at", { ascending: false });
+
+    if (error) {
+      console.error("Error loading receiving history:", error);
+      return;
+    }
+
+    // Get product names and user profiles
+    const productIds = [...new Set((receipts || []).flatMap((r: any) => 
+      r.goods_receipt_items.map((i: any) => i.product_id)
+    ))];
+    const userIds = [...new Set((receipts || []).map((r: any) => r.received_by).filter(Boolean))];
+
+    const [productsRes, profilesRes] = await Promise.all([
+      productIds.length > 0 
+        ? supabase.from("products").select("id, name").in("id", productIds)
+        : { data: [] },
+      userIds.length > 0
+        ? supabase.from("profiles").select("id, full_name, email").in("id", userIds)
+        : { data: [] },
+    ]);
+
+    const productMap = new Map((productsRes.data || []).map((p: any) => [p.id, p.name]));
+    const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
+
+    setReceivingHistory(
+      (receipts || []).map((r: any) => ({
+        id: r.id,
+        received_at: r.received_at,
+        received_by: r.received_by,
+        notes: r.notes,
+        items: r.goods_receipt_items.map((i: any) => ({
+          product_id: i.product_id,
+          product_name: productMap.get(i.product_id) || "Unknown",
+          quantity_received: i.quantity_received,
+        })),
+        profile: profileMap.get(r.received_by),
       }))
     );
   }
@@ -440,6 +522,7 @@ export default function PurchaseOrderForm() {
         receiving_now: item.quantity - item.quantity_received,
       }))
     );
+    setReceiveNotes("");
     setReceiveDialogOpen(true);
   }
 
@@ -534,6 +617,32 @@ export default function PurchaseOrderForm() {
           notes: `Received from PO`,
         });
       }
+
+      // Create goods receipt record
+      const { data: receipt, error: receiptError } = await supabase
+        .from("goods_receipts")
+        .insert({
+          purchase_order_id: id,
+          received_by: userId,
+          notes: receiveNotes || null,
+        })
+        .select()
+        .single();
+
+      if (receiptError) throw receiptError;
+
+      // Create receipt items
+      const { error: receiptItemsError } = await supabase
+        .from("goods_receipt_items")
+        .insert(
+          itemsToReceive.map((item) => ({
+            goods_receipt_id: receipt.id,
+            product_id: item.product_id,
+            quantity_received: item.receiving_now,
+          }))
+        );
+
+      if (receiptItemsError) throw receiptItemsError;
 
       // Check if all items are fully received
       const allReceived = receiveItems.every(
@@ -835,6 +944,50 @@ export default function PurchaseOrderForm() {
           </CardContent>
         </Card>
 
+        {/* Receiving History */}
+        {isEditing && receivingHistory.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Receiving History
+              </CardTitle>
+              <CardDescription>
+                {receivingHistory.length} receipt{receivingHistory.length !== 1 ? "s" : ""} recorded
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {receivingHistory.map((receipt) => (
+                <div key={receipt.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {receipt.profile?.full_name || receipt.profile?.email || "Unknown user"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {format(new Date(receipt.received_at), "MMM d, yyyy 'at' h:mm a")}
+                    </div>
+                  </div>
+                  {receipt.notes && (
+                    <p className="text-sm text-muted-foreground italic">"{receipt.notes}"</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {receipt.items.map((item, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {item.product_name}: +{item.quantity_received}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Add Product Dialog */}
         <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
           <DialogContent>
@@ -999,6 +1152,15 @@ export default function PurchaseOrderForm() {
                   })}
                 </TableBody>
               </Table>
+              <div className="mt-4 space-y-2">
+                <Label>Notes (optional)</Label>
+                <Textarea
+                  value={receiveNotes}
+                  onChange={(e) => setReceiveNotes(e.target.value)}
+                  placeholder="Add notes about this receipt..."
+                  rows={2}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>
