@@ -10,6 +10,8 @@ import {
   Truck,
   Calendar,
   Search,
+  PackageCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -86,8 +88,17 @@ interface POItem {
   product_name: string;
   sku: string | null;
   quantity: number;
+  quantity_received: number;
   unit_cost: number;
   total: number;
+}
+
+interface ReceiveItem {
+  product_id: string;
+  product_name: string;
+  ordered: number;
+  previously_received: number;
+  receiving_now: number;
 }
 
 type POStatus = "draft" | "submitted" | "confirmed" | "shipped" | "received" | "cancelled";
@@ -122,6 +133,11 @@ export default function PurchaseOrderForm() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);
   const [addUnitCost, setAddUnitCost] = useState(0);
+
+  // Receive goods dialog
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [receiveItems, setReceiveItems] = useState<ReceiveItem[]>([]);
+  const [receiving, setReceiving] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -164,6 +180,7 @@ export default function PurchaseOrderForm() {
             product_name: item.product_name,
             sku: item.sku || null,
             quantity: item.quantity || 1,
+            quantity_received: 0,
             unit_cost: item.unit_cost || 0,
             total: (item.quantity || 1) * (item.unit_cost || 0),
           })));
@@ -241,6 +258,7 @@ export default function PurchaseOrderForm() {
         product_name: item.products?.name || "Unknown",
         sku: item.products?.sku || null,
         quantity: item.quantity,
+        quantity_received: item.quantity_received || 0,
         unit_cost: Number(item.unit_cost),
         total: Number(item.total),
       }))
@@ -267,6 +285,7 @@ export default function PurchaseOrderForm() {
           product_name: selectedProduct.name,
           sku: selectedProduct.sku,
           quantity: addQuantity,
+          quantity_received: 0,
           unit_cost: addUnitCost,
           total: addQuantity * addUnitCost,
         },
@@ -411,11 +430,153 @@ export default function PurchaseOrderForm() {
     }
   }
 
+  function openReceiveDialog() {
+    setReceiveItems(
+      items.map((item) => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        ordered: item.quantity,
+        previously_received: item.quantity_received,
+        receiving_now: item.quantity - item.quantity_received,
+      }))
+    );
+    setReceiveDialogOpen(true);
+  }
+
+  function updateReceivingQuantity(index: number, qty: number) {
+    const newItems = [...receiveItems];
+    const maxReceivable = newItems[index].ordered - newItems[index].previously_received;
+    newItems[index].receiving_now = Math.max(0, Math.min(qty, maxReceivable));
+    setReceiveItems(newItems);
+  }
+
+  async function handleReceiveGoods() {
+    if (!id) return;
+
+    const itemsToReceive = receiveItems.filter((item) => item.receiving_now > 0);
+    if (itemsToReceive.length === 0) {
+      toast({ title: "No items to receive", variant: "destructive" });
+      return;
+    }
+
+    setReceiving(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+
+      // Update each item's quantity_received and product stock
+      for (const item of itemsToReceive) {
+        const poItem = items.find((i) => i.product_id === item.product_id);
+        if (!poItem?.id) continue;
+
+        const newReceived = item.previously_received + item.receiving_now;
+
+        // Update PO item
+        await supabase
+          .from("purchase_order_items")
+          .update({ quantity_received: newReceived })
+          .eq("id", poItem.id);
+
+        // Update product stock
+        await supabase
+          .from("products")
+          .update({
+            stock_quantity: supabase.rpc ? undefined : undefined,
+          })
+          .eq("id", item.product_id);
+
+        // Actually increment stock using raw update
+        const { data: product } = await supabase
+          .from("products")
+          .select("stock_quantity")
+          .eq("id", item.product_id)
+          .single();
+
+        if (product) {
+          await supabase
+            .from("products")
+            .update({ stock_quantity: product.stock_quantity + item.receiving_now })
+            .eq("id", item.product_id);
+        }
+
+        // Update branch stock if specified
+        if (branchId) {
+          const { data: branchStock } = await supabase
+            .from("product_branches")
+            .select("id, stock_quantity")
+            .eq("product_id", item.product_id)
+            .eq("branch_id", branchId)
+            .single();
+
+          if (branchStock) {
+            await supabase
+              .from("product_branches")
+              .update({ stock_quantity: branchStock.stock_quantity + item.receiving_now })
+              .eq("id", branchStock.id);
+          } else {
+            await supabase.from("product_branches").insert({
+              product_id: item.product_id,
+              branch_id: branchId,
+              stock_quantity: item.receiving_now,
+            });
+          }
+        }
+
+        // Record stock movement
+        await supabase.from("stock_movements").insert({
+          product_id: item.product_id,
+          quantity: item.receiving_now,
+          movement_type: "purchase",
+          reference_type: "purchase_order",
+          reference_id: id,
+          branch_id: branchId || null,
+          created_by: userId,
+          notes: `Received from PO`,
+        });
+      }
+
+      // Check if all items are fully received
+      const allReceived = receiveItems.every(
+        (item) => item.previously_received + item.receiving_now >= item.ordered
+      );
+
+      // Update PO status and received_date
+      await supabase
+        .from("purchase_orders")
+        .update({
+          status: allReceived ? "received" : status,
+          received_date: allReceived ? format(new Date(), "yyyy-MM-dd") : null,
+        })
+        .eq("id", id);
+
+      toast({
+        title: "Goods received successfully",
+        description: allReceived
+          ? "All items received. Order marked as complete."
+          : "Partial receipt recorded.",
+      });
+
+      setReceiveDialogOpen(false);
+      // Reload order to reflect changes
+      await loadExistingOrder();
+      if (allReceived) {
+        setStatus("received");
+      }
+    } catch (err: any) {
+      console.error("Error receiving goods:", err);
+      toast({ title: "Failed to receive goods", description: err.message, variant: "destructive" });
+    } finally {
+      setReceiving(false);
+    }
+  }
+
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
       p.sku?.toLowerCase().includes(productSearch.toLowerCase())
   );
+
+  const canReceiveGoods = isEditing && ["confirmed", "shipped"].includes(status);
 
   if (loading) {
     return (
@@ -447,10 +608,18 @@ export default function PurchaseOrderForm() {
               {isEditing ? "Update purchase order details" : "Create a new purchase order for your supplier"}
             </p>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : "Save Order"}
-          </Button>
+          <div className="flex gap-2">
+            {canReceiveGoods && (
+              <Button variant="outline" onClick={openReceiveDialog}>
+                <PackageCheck className="w-4 h-4 mr-2" />
+                Receive Goods
+              </Button>
+            )}
+            <Button onClick={handleSave} disabled={saving}>
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? "Saving..." : "Save Order"}
+            </Button>
+          </div>
         </div>
 
         {/* Order Details */}
@@ -581,6 +750,7 @@ export default function PurchaseOrderForm() {
                       <TableHead>Product</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead className="w-32">Quantity</TableHead>
+                      {isEditing && <TableHead className="w-32">Received</TableHead>}
                       <TableHead className="w-40">Unit Cost</TableHead>
                       <TableHead className="text-right w-32">Total</TableHead>
                       <TableHead className="w-10"></TableHead>
@@ -602,6 +772,20 @@ export default function PurchaseOrderForm() {
                             className="w-24"
                           />
                         </TableCell>
+                        {isEditing && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <span className={item.quantity_received >= item.quantity ? "text-green-600" : "text-muted-foreground"}>
+                                {item.quantity_received}
+                              </span>
+                              <span className="text-muted-foreground">/</span>
+                              <span>{item.quantity}</span>
+                              {item.quantity_received >= item.quantity && (
+                                <CheckCircle2 className="w-4 h-4 text-green-600 ml-1" />
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -751,6 +935,81 @@ export default function PurchaseOrderForm() {
               </Button>
               <Button onClick={handleAddProduct} disabled={!selectedProduct}>
                 Add Item
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Receive Goods Dialog */}
+        <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PackageCheck className="w-5 h-5" />
+                Receive Goods
+              </DialogTitle>
+              <DialogDescription>
+                Enter the quantities received for each item. Stock will be updated automatically.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="text-center">Ordered</TableHead>
+                    <TableHead className="text-center">Previously Received</TableHead>
+                    <TableHead className="text-center">Receiving Now</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receiveItems.map((item, index) => {
+                    const remaining = item.ordered - item.previously_received;
+                    const isFullyReceived = remaining <= 0;
+                    return (
+                      <TableRow key={item.product_id} className={isFullyReceived ? "opacity-50" : ""}>
+                        <TableCell className="font-medium">{item.product_name}</TableCell>
+                        <TableCell className="text-center">{item.ordered}</TableCell>
+                        <TableCell className="text-center">
+                          {item.previously_received > 0 ? (
+                            <span className="text-green-600">{item.previously_received}</span>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isFullyReceived ? (
+                            <div className="flex items-center justify-center gap-1 text-green-600">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Complete
+                            </div>
+                          ) : (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={remaining}
+                              value={item.receiving_now}
+                              onChange={(e) => updateReceivingQuantity(index, parseInt(e.target.value) || 0)}
+                              className="w-24 mx-auto text-center"
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleReceiveGoods} 
+                disabled={receiving || receiveItems.every((i) => i.receiving_now === 0)}
+              >
+                <PackageCheck className="w-4 h-4 mr-2" />
+                {receiving ? "Processing..." : "Confirm Receipt"}
               </Button>
             </DialogFooter>
           </DialogContent>
