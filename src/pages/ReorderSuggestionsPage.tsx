@@ -12,8 +12,12 @@ import {
   FileText,
   Mail,
   Send,
+  Settings,
+  Save,
+  Clock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +26,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -70,6 +79,48 @@ export default function ReorderSuggestionsPage() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [purchasingEmail, setPurchasingEmail] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  useEffect(() => {
+    loadPurchasingEmail();
+  }, []);
+
+  async function loadPurchasingEmail() {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'purchasing_team_email')
+        .single();
+      
+      if (!error && data?.value) {
+        setPurchasingEmail(data.value);
+      }
+    } catch (err) {
+      console.error("Error loading purchasing email:", err);
+    }
+  }
+
+  async function savePurchasingEmail() {
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: purchasingEmail })
+        .eq('key', 'purchasing_team_email');
+
+      if (error) throw error;
+      
+      toast({ title: "Settings saved", description: "Daily alerts will be sent to this email at 8 AM UTC" });
+    } catch (err: any) {
+      console.error("Error saving settings:", err);
+      toast({ title: "Failed to save settings", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   useEffect(() => {
     if (currentBranch) {
@@ -519,6 +570,67 @@ export default function ReorderSuggestionsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Automated Alert Settings */}
+        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <CardTitle className="text-base">Automated Daily Alerts</CardTitle>
+                    <CardDescription className="text-sm">
+                      {purchasingEmail 
+                        ? `Sending to ${purchasingEmail} daily at 8 AM UTC`
+                        : "Configure email for automatic daily stock alerts"
+                      }
+                    </CardDescription>
+                  </div>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    {settingsOpen ? "Hide" : "Configure"}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0 border-t">
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="purchasing-email">Purchasing Team Email</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="purchasing-email"
+                        type="email"
+                        placeholder="purchasing@company.com"
+                        value={purchasingEmail}
+                        onChange={(e) => setPurchasingEmail(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button onClick={savePurchasingEmail} disabled={savingSettings}>
+                        {savingSettings ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Critical and high-priority items will be emailed automatically every day at 8 AM UTC.
+                      Leave empty to disable automated alerts.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
