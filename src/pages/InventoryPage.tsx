@@ -11,6 +11,9 @@ import {
   Filter,
   ArrowRightLeft,
   Building2,
+  History,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -42,12 +45,23 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "@/contexts/BranchContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 type StockFilter = "all" | "low" | "out";
+
+interface StockMovement {
+  id: string;
+  quantity: number;
+  movement_type: string;
+  notes: string | null;
+  created_at: string;
+  branch_name?: string;
+}
 
 interface BranchProduct {
   id: string;
@@ -82,6 +96,12 @@ export default function InventoryPage() {
   const [transferQty, setTransferQty] = useState("");
   const [transferNotes, setTransferNotes] = useState("");
   const [transferring, setTransferring] = useState(false);
+
+  // History dialog
+  const [historyDialog, setHistoryDialog] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState<BranchProduct | null>(null);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     if (currentBranch) {
@@ -196,6 +216,71 @@ export default function InventoryPage() {
     setTransferQty("");
     setTransferNotes("");
     setTransferDialog(true);
+  }
+
+  async function openHistory(product: BranchProduct) {
+    setHistoryProduct(product);
+    setMovements([]);
+    setHistoryDialog(true);
+    setLoadingHistory(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('stock_movements')
+        .select(`
+          id,
+          quantity,
+          movement_type,
+          notes,
+          created_at,
+          branch_id,
+          branches (name)
+        `)
+        .eq('product_id', product.product_id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const movementsData: StockMovement[] = (data || []).map(m => ({
+        id: m.id,
+        quantity: m.quantity,
+        movement_type: m.movement_type,
+        notes: m.notes,
+        created_at: m.created_at,
+        branch_name: (m.branches as any)?.name || 'Unknown',
+      }));
+
+      setMovements(movementsData);
+    } catch (error) {
+      console.error("Error loading movement history:", error);
+      toast({ title: "Error loading history", variant: "destructive" });
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  function getMovementIcon(type: string) {
+    if (type.includes('in') || type === 'adjustment_in') {
+      return <ArrowDownRight className="w-4 h-4 text-success" />;
+    }
+    if (type.includes('out') || type === 'adjustment_out' || type === 'sale') {
+      return <ArrowUpRight className="w-4 h-4 text-destructive" />;
+    }
+    return <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />;
+  }
+
+  function getMovementLabel(type: string) {
+    switch (type) {
+      case 'adjustment_in': return 'Stock Added';
+      case 'adjustment_out': return 'Stock Removed';
+      case 'transfer_in': return 'Transfer In';
+      case 'transfer_out': return 'Transfer Out';
+      case 'sale': return 'Sale';
+      case 'in': return 'Stock In';
+      case 'out': return 'Stock Out';
+      default: return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
   }
 
   async function handleAdjustment() {
@@ -558,6 +643,15 @@ export default function InventoryPage() {
                               <ArrowRightLeft className="w-4 h-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openHistory(product)}
+                            title="View movement history"
+                          >
+                            <History className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -713,6 +807,78 @@ export default function InventoryPage() {
                 disabled={transferring || !transferQty || !targetBranchId}
               >
                 {transferring ? "Transferring..." : "Transfer Stock"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Stock Movement History Dialog */}
+        <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
+          <DialogContent className="bg-background max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Stock Movement History
+              </DialogTitle>
+              <DialogDescription>
+                {historyProduct?.name} - All stock movements across branches
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="h-[400px] pr-4">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-muted-foreground">Loading history...</p>
+                </div>
+              ) : movements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32">
+                  <History className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">No movement history found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {movements.map((movement) => (
+                    <div 
+                      key={movement.id} 
+                      className="flex items-start gap-3 p-3 rounded-lg border bg-card"
+                    >
+                      <div className="mt-0.5">
+                        {getMovementIcon(movement.movement_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-sm">
+                            {getMovementLabel(movement.movement_type)}
+                          </span>
+                          <span className={`font-mono text-sm font-bold ${
+                            movement.quantity > 0 ? 'text-success' : 'text-destructive'
+                          }`}>
+                            {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {movement.branch_name}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(movement.created_at), 'MMM d, yyyy h:mm a')}
+                          </span>
+                        </div>
+                        {movement.notes && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {movement.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHistoryDialog(false)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
