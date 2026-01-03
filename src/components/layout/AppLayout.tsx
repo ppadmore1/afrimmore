@@ -17,11 +17,13 @@ import {
   User,
   Bell,
   AlertTriangle,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranch } from "@/contexts/BranchContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +35,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useLowStockCheck } from "@/components/LowStockAlert";
+import { BranchSelector } from "@/components/BranchSelector";
 import { toast } from "@/hooks/use-toast";
 
 const navItems = [
@@ -45,6 +48,7 @@ const navItems = [
   { icon: Users, label: "Customers", path: "/customers" },
   { icon: CreditCard, label: "Payments", path: "/payments" },
   { icon: BarChart3, label: "Reports", path: "/reports" },
+  { icon: Building2, label: "Branches", path: "/branches", adminOnly: true },
 ];
 
 interface AppLayoutProps {
@@ -56,6 +60,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [alertShown, setAlertShown] = useState(false);
   const { user, signOut } = useAuth();
+  const { isAdmin, currentBranch } = useBranch();
   const { lowStockCount, outOfStockCount, criticalProducts, hasAlerts } = useLowStockCheck();
 
   // Show toast notification for low stock on first load
@@ -118,9 +123,17 @@ export function AppLayout({ children }: AppLayoutProps) {
           )}
         </div>
 
+        {/* Branch Selector */}
+        <div className="px-4 pb-4">
+          <BranchSelector />
+        </div>
+
         <nav className="flex-1 px-4 py-2 overflow-y-auto">
           <ul className="space-y-1">
             {navItems.map((item) => {
+              // Skip admin-only items for non-admins
+              if ('adminOnly' in item && item.adminOnly && !isAdmin) return null;
+              
               const isActive = location.pathname === item.path || 
                 (item.path !== "/" && location.pathname.startsWith(item.path));
               const isInventory = item.path === "/inventory";
@@ -205,6 +218,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             <span className="font-bold text-foreground">POSFlow</span>
           </Link>
           <div className="flex items-center gap-1">
+            {/* Mobile Branch Selector */}
+            <BranchSelector compact />
             {/* Mobile Notification Bell */}
             {hasAlerts && (
               <Link to="/inventory">
@@ -259,6 +274,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             <nav className="p-4">
               <ul className="space-y-1">
                 {navItems.map((item) => {
+                  // Skip admin-only items for non-admins
+                  if ('adminOnly' in item && item.adminOnly && !isAdmin) return null;
+                  
                   const isActive = location.pathname === item.path;
                   return (
                     <li key={item.path}>
