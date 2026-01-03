@@ -8,6 +8,8 @@ import {
   Calendar,
   ArrowRight,
   RefreshCw,
+  Download,
+  FileText,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "@/contexts/BranchContext";
 import { toast } from "@/hooks/use-toast";
 import { subDays, format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ReorderSuggestion {
   product_id: string;
@@ -217,6 +221,128 @@ export default function ReorderSuggestionsPage() {
     );
   }
 
+  function exportToCSV() {
+    if (suggestions.length === 0) {
+      toast({ title: "No data to export", variant: "destructive" });
+      return;
+    }
+
+    const headers = [
+      "Product Name",
+      "SKU",
+      "Urgency",
+      "Current Stock",
+      "Low Stock Threshold",
+      "Avg Daily Sales",
+      "Days of Stock Left",
+      `Sold (${analysisPeriod} days)`,
+      "Suggested Order Qty",
+    ];
+
+    const rows = suggestions.map((s) => [
+      s.product_name,
+      s.sku || "",
+      s.urgency.toUpperCase(),
+      s.current_stock,
+      s.low_stock_threshold,
+      s.avg_daily_sales.toFixed(2),
+      s.days_of_stock === 999 ? "N/A" : s.days_of_stock.toFixed(0),
+      s.total_sold_period,
+      s.suggested_order_qty,
+    ]);
+
+    const csvContent = [
+      `Reorder Suggestions - ${currentBranch?.name} - ${format(new Date(), "yyyy-MM-dd")}`,
+      `Analysis Period: Last ${analysisPeriod} days | Target Coverage: ${targetDays} days`,
+      "",
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `reorder-suggestions-${currentBranch?.code || "all"}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    toast({ title: "CSV exported successfully" });
+  }
+
+  function exportToPDF() {
+    if (suggestions.length === 0) {
+      toast({ title: "No data to export", variant: "destructive" });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reorder Suggestions", 14, 20);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Branch: ${currentBranch?.name}`, 14, 30);
+    doc.text(`Generated: ${format(new Date(), "MMMM d, yyyy")}`, 14, 37);
+    doc.text(`Analysis: Last ${analysisPeriod} days | Target: ${targetDays} days coverage`, 14, 44);
+
+    // Summary
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Critical: ${criticalCount} | High: ${highCount} | Total Items: ${suggestions.length} | Total Units: ${totalSuggestedUnits}`, 14, 54);
+
+    // Table
+    autoTable(doc, {
+      startY: 60,
+      head: [[
+        "Product",
+        "SKU",
+        "Urgency",
+        "Stock",
+        "Avg/Day",
+        "Days Left",
+        "Order Qty",
+      ]],
+      body: suggestions.map((s) => [
+        s.product_name.length > 25 ? s.product_name.substring(0, 25) + "..." : s.product_name,
+        s.sku || "-",
+        s.urgency.toUpperCase(),
+        s.current_stock.toString(),
+        s.avg_daily_sales.toFixed(1),
+        s.days_of_stock === 999 ? "∞" : s.days_of_stock.toFixed(0),
+        `+${s.suggested_order_qty}`,
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 18, halign: "right" },
+        4: { cellWidth: 18, halign: "right" },
+        5: { cellWidth: 20, halign: "right" },
+        6: { cellWidth: 22, halign: "right", fontStyle: "bold" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 2) {
+          const urgency = data.cell.raw?.toString().toLowerCase();
+          if (urgency === "critical") {
+            data.cell.styles.textColor = [220, 53, 69];
+            data.cell.styles.fontStyle = "bold";
+          } else if (urgency === "high") {
+            data.cell.styles.textColor = [255, 152, 0];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    });
+
+    doc.save(`reorder-suggestions-${currentBranch?.code || "all"}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    toast({ title: "PDF exported successfully" });
+  }
+
   const criticalCount = suggestions.filter(s => s.urgency === "critical").length;
   const highCount = suggestions.filter(s => s.urgency === "high").length;
   const totalSuggestedUnits = suggestions.reduce((sum, s) => sum + s.suggested_order_qty, 0);
@@ -246,10 +372,20 @@ export default function ReorderSuggestionsPage() {
               Smart recommendations based on sales velocity at {currentBranch.name}
             </p>
           </div>
-          <Button onClick={loadReorderSuggestions} variant="outline" disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={exportToCSV} variant="outline" disabled={loading || suggestions.length === 0}>
+              <Download className="w-4 h-4 mr-2" />
+              CSV
+            </Button>
+            <Button onClick={exportToPDF} variant="outline" disabled={loading || suggestions.length === 0}>
+              <FileText className="w-4 h-4 mr-2" />
+              PDF
+            </Button>
+            <Button onClick={loadReorderSuggestions} variant="outline" disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
