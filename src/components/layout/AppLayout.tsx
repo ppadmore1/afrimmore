@@ -18,6 +18,7 @@ import {
   Bell,
   AlertTriangle,
   Building2,
+  GitCompare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: ShoppingCart, label: "POS", path: "/pos" },
   { icon: Package, label: "Inventory", path: "/inventory" },
+  { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
   { icon: FileCheck, label: "Quotations", path: "/quotations" },
   { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
