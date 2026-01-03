@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Wand2, Barcode } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { getProduct, addProduct, updateProduct, getCategories, Category } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
+import { BarcodeGenerator, generateBarcodeValue } from "@/components/BarcodeGenerator";
 
 export default function ProductForm() {
   const navigate = useNavigate();
@@ -205,12 +206,31 @@ export default function ProductForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="barcode">Barcode</Label>
-                <Input
-                  id="barcode"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  placeholder="Product barcode"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="barcode"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder="Product barcode"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const newBarcode = generateBarcodeValue(id || crypto.randomUUID());
+                      setBarcode(newBarcode);
+                      toast({ title: "Barcode generated" });
+                    }}
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Generate
+                  </Button>
+                </div>
+                {barcode && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <BarcodeGenerator value={barcode} productName={name} />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

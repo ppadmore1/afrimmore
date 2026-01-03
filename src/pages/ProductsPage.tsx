@@ -8,6 +8,9 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Barcode,
+  Wand2,
+  Loader2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -20,12 +23,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getProducts, deleteProduct, Product } from "@/lib/supabase-db";
+import { getProducts, deleteProduct, updateProduct, Product } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
+import { BarcodeDialog, generateBarcodeValue } from "@/components/BarcodeGenerator";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generatingBarcodes, setGeneratingBarcodes] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -60,6 +65,41 @@ export default function ProductsPage() {
     (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
+  const productsWithoutBarcode = products.filter(p => !p.barcode);
+
+  async function generateAllBarcodes() {
+    if (productsWithoutBarcode.length === 0) {
+      toast({ title: "All products already have barcodes" });
+      return;
+    }
+
+    setGeneratingBarcodes(true);
+    let generated = 0;
+
+    try {
+      for (const product of productsWithoutBarcode) {
+        const newBarcode = generateBarcodeValue(product.id);
+        await updateProduct(product.id, { barcode: newBarcode });
+        generated++;
+      }
+
+      await loadProducts();
+      toast({ 
+        title: "Barcodes generated", 
+        description: `Generated barcodes for ${generated} products` 
+      });
+    } catch (error) {
+      console.error("Error generating barcodes:", error);
+      toast({ 
+        title: "Error generating barcodes", 
+        description: `Generated ${generated} before error occurred`,
+        variant: "destructive" 
+      });
+    } finally {
+      setGeneratingBarcodes(false);
+    }
+  }
+
   return (
     <AppLayout>
       <motion.div
@@ -73,12 +113,29 @@ export default function ProductsPage() {
             <h1 className="text-3xl font-bold text-foreground">Products & Services</h1>
             <p className="text-muted-foreground mt-1">Manage your product catalog</p>
           </div>
-          <Link to="/products/new">
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Product
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            {productsWithoutBarcode.length > 0 && (
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={generateAllBarcodes}
+                disabled={generatingBarcodes}
+              >
+                {generatingBarcodes ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Wand2 className="w-4 h-4" />
+                )}
+                Generate Barcodes ({productsWithoutBarcode.length})
+              </Button>
+            )}
+            <Link to="/products/new">
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Product
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Search */}
@@ -180,10 +237,22 @@ export default function ProductsPage() {
                   )}
 
                   {product.stock_quantity !== undefined && (
-                    <div className="mt-4">
+                    <div className="mt-4 flex items-center gap-2 flex-wrap">
                       <Badge variant={product.stock_quantity > (product.low_stock_threshold || 10) ? "default" : product.stock_quantity > 0 ? "secondary" : "destructive"}>
                         {product.stock_quantity} in stock
                       </Badge>
+                      {product.barcode && (
+                        <BarcodeDialog 
+                          value={product.barcode} 
+                          productName={product.name}
+                          trigger={
+                            <Button variant="ghost" size="sm" className="h-6 px-2">
+                              <Barcode className="w-3 h-3 mr-1" />
+                              Barcode
+                            </Button>
+                          }
+                        />
+                      )}
                     </div>
                   )}
                 </CardContent>
