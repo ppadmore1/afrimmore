@@ -10,7 +10,6 @@ import {
   Mail,
   Loader2,
 } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,27 +24,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
-  getAllCustomers, 
-  getAllProducts, 
+  getCustomers, 
+  getProducts, 
   getInvoice,
   addInvoice, 
   updateInvoice,
   getNextInvoiceNumber,
   Customer, 
   Product,
-  Invoice,
-  InvoiceItem,
-  InvoiceStatus,
-} from "@/lib/db";
+  DocumentStatus,
+} from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 import { useSendDocumentEmail } from "@/hooks/useSendDocumentEmail";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface LineItem {
+  id: string;
+  product_id: string | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+  discount: number;
+  total: number;
+}
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = Boolean(id);
   const { sendEmail, isSending } = useSendDocumentEmail();
+  const { user } = useAuth();
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -55,8 +65,8 @@ export default function InvoiceForm() {
   // Form state
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [items, setItems] = useState<InvoiceItem[]>([]);
-  const [status, setStatus] = useState<InvoiceStatus>("draft");
+  const [items, setItems] = useState<LineItem[]>([]);
+  const [status, setStatus] = useState<DocumentStatus>("draft");
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
@@ -65,22 +75,35 @@ export default function InvoiceForm() {
     async function loadData() {
       try {
         const [customersData, productsData] = await Promise.all([
-          getAllCustomers(),
-          getAllProducts(),
+          getCustomers(),
+          getProducts(),
         ]);
         setCustomers(customersData);
-        setProducts(productsData);
+        setProducts(productsData.filter(p => p.is_active !== false));
 
         if (isEditing && id) {
           const invoice = await getInvoice(id);
           if (invoice) {
-            setInvoiceNumber(invoice.invoiceNumber);
-            setSelectedCustomerId(invoice.customerId);
-            setItems(invoice.items);
+            setInvoiceNumber(invoice.invoice_number);
+            setSelectedCustomerId(invoice.customer_id || "");
             setStatus(invoice.status);
-            setDueDate(format(new Date(invoice.dueDate), "yyyy-MM-dd"));
-            setNotes(invoice.notes);
-            setPaymentTerms(invoice.paymentTerms);
+            setDueDate(invoice.due_date ? format(new Date(invoice.due_date), "yyyy-MM-dd") : "");
+            setNotes(invoice.notes || "");
+            setPaymentTerms(invoice.payment_terms || "Net 30");
+            
+            // Map invoice items
+            if (invoice.items) {
+              setItems(invoice.items.map((item, index) => ({
+                id: item.id || `item-${index}`,
+                product_id: item.product_id,
+                description: item.description,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                tax_rate: item.tax_rate || 0,
+                discount: item.discount || 0,
+                total: item.total,
+              })));
+            }
           }
         } else {
           const nextNumber = await getNextInvoiceNumber();
@@ -88,6 +111,7 @@ export default function InvoiceForm() {
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        toast({ title: "Error loading data", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -99,12 +123,12 @@ export default function InvoiceForm() {
     setItems([
       ...items,
       {
-        productId: "",
-        productName: "",
+        id: `new-${Date.now()}`,
+        product_id: null,
         description: "",
         quantity: 1,
-        unitPrice: 0,
-        tax: 0,
+        unit_price: 0,
+        tax_rate: 0,
         discount: 0,
         total: 0,
       },
@@ -115,16 +139,17 @@ export default function InvoiceForm() {
     setItems(items.filter((_, i) => i !== index));
   }
 
-  function updateItem(index: number, field: keyof InvoiceItem, value: any) {
+  function updateItem(index: number, field: keyof LineItem, value: any) {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     
     // Recalculate total
     const item = newItems[index];
-    const subtotal = item.quantity * item.unitPrice;
-    const taxAmount = subtotal * (item.tax / 100);
+    const subtotal = item.quantity * item.unit_price;
     const discountAmount = subtotal * (item.discount / 100);
-    item.total = subtotal + taxAmount - discountAmount;
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = afterDiscount * (item.tax_rate / 100);
+    item.total = afterDiscount + taxAmount;
     
     setItems(newItems);
   }
@@ -133,22 +158,38 @@ export default function InvoiceForm() {
     const product = products.find(p => p.id === productId);
     if (product) {
       const newItems = [...items];
+      const quantity = newItems[index].quantity || 1;
       newItems[index] = {
         ...newItems[index],
-        productId: product.id,
-        productName: product.name,
-        description: product.description,
-        unitPrice: product.price,
-        total: product.price * newItems[index].quantity,
+        product_id: product.id,
+        description: product.name + (product.description ? ` - ${product.description}` : ''),
+        unit_price: product.unit_price,
+        tax_rate: product.tax_rate || 0,
+        total: product.unit_price * quantity,
       };
       setItems(newItems);
     }
   }
 
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  const taxTotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice * item.tax / 100), 0);
-  const discountTotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice * item.discount / 100), 0);
-  const total = subtotal + taxTotal - discountTotal;
+  const subtotal = items.reduce((sum, item) => {
+    const itemSubtotal = item.quantity * item.unit_price;
+    const discountAmount = itemSubtotal * (item.discount / 100);
+    return sum + (itemSubtotal - discountAmount);
+  }, 0);
+  
+  const taxTotal = items.reduce((sum, item) => {
+    const itemSubtotal = item.quantity * item.unit_price;
+    const discountAmount = itemSubtotal * (item.discount / 100);
+    const afterDiscount = itemSubtotal - discountAmount;
+    return sum + (afterDiscount * item.tax_rate / 100);
+  }, 0);
+  
+  const discountTotal = items.reduce((sum, item) => {
+    const itemSubtotal = item.quantity * item.unit_price;
+    return sum + (itemSubtotal * item.discount / 100);
+  }, 0);
+  
+  const total = subtotal + taxTotal;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -163,39 +204,57 @@ export default function InvoiceForm() {
       return;
     }
 
+    // Validate all items have description
+    const invalidItems = items.filter(item => !item.description.trim());
+    if (invalidItems.length > 0) {
+      toast({ title: "All items must have a description", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     
     try {
       const customer = customers.find(c => c.id === selectedCustomerId);
       
-      const invoice: Invoice = {
-        id: isEditing && id ? id : uuidv4(),
-        invoiceNumber,
-        customerId: selectedCustomerId,
-        customerName: customer?.name || "",
-        items,
-        subtotal,
-        taxTotal,
-        discountTotal,
-        total,
+      const invoiceData = {
+        invoice_number: invoiceNumber,
+        customer_id: selectedCustomerId,
+        customer_name: customer?.name || "",
+        customer_email: customer?.email || null,
+        customer_address: customer?.address || null,
         status,
-        dueDate: new Date(dueDate),
-        notes,
-        paymentTerms,
-        createdAt: isEditing ? new Date() : new Date(),
-        updatedAt: new Date(),
+        subtotal,
+        tax_total: taxTotal,
+        discount_total: discountTotal,
+        total,
+        amount_paid: 0,
+        due_date: dueDate || null,
+        notes: notes || null,
+        payment_terms: paymentTerms || null,
+        created_by: user?.id || null,
       };
 
-      if (isEditing) {
-        await updateInvoice(invoice);
+      const itemsData = items.map(item => ({
+        product_id: item.product_id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        tax_rate: item.tax_rate,
+        discount: item.discount,
+        total: item.total,
+      }));
+
+      if (isEditing && id) {
+        await updateInvoice(id, invoiceData, itemsData);
         toast({ title: "Invoice updated successfully" });
       } else {
-        await addInvoice(invoice);
+        await addInvoice(invoiceData, itemsData);
         toast({ title: "Invoice created successfully" });
       }
 
       navigate("/invoices");
     } catch (error) {
+      console.error("Error saving invoice:", error);
       toast({ title: "Error saving invoice", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -219,9 +278,9 @@ export default function InvoiceForm() {
       customerName: customer.name,
       customerEmail: customer.email,
       items: items.map(item => ({
-        description: item.description || item.productName,
+        description: item.description,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
+        unitPrice: item.unit_price,
         total: item.total,
       })),
       subtotal,
@@ -303,16 +362,15 @@ export default function InvoiceForm() {
 
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as InvoiceStatus)}>
+                <Select value={status} onValueChange={(v) => setStatus(v as DocumentStatus)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
                     <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="partial">Partial</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
@@ -351,11 +409,11 @@ export default function InvoiceForm() {
 
                   {/* Items */}
                   {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 lg:p-0 bg-muted/50 lg:bg-transparent rounded-lg">
+                    <div key={item.id} className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 lg:p-0 bg-muted/50 lg:bg-transparent rounded-lg">
                       <div className="lg:col-span-3">
                         <Label className="lg:hidden mb-2 block">Product</Label>
                         <Select 
-                          value={item.productId} 
+                          value={item.product_id || ""} 
                           onValueChange={(v) => selectProduct(index, v)}
                         >
                           <SelectTrigger>
@@ -364,7 +422,7 @@ export default function InvoiceForm() {
                           <SelectContent className="bg-popover">
                             {products.map((product) => (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} - ${product.price}
+                                {product.name} - ${product.unit_price.toFixed(2)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -372,11 +430,12 @@ export default function InvoiceForm() {
                       </div>
 
                       <div className="lg:col-span-2">
-                        <Label className="lg:hidden mb-2 block">Description</Label>
+                        <Label className="lg:hidden mb-2 block">Description *</Label>
                         <Input
                           value={item.description}
                           onChange={(e) => updateItem(index, "description", e.target.value)}
                           placeholder="Description"
+                          required
                         />
                       </div>
 
@@ -396,8 +455,8 @@ export default function InvoiceForm() {
                           type="number"
                           step="0.01"
                           min="0"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)}
+                          value={item.unit_price}
+                          onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
                         />
                       </div>
 
@@ -408,8 +467,8 @@ export default function InvoiceForm() {
                           step="0.1"
                           min="0"
                           max="100"
-                          value={item.tax}
-                          onChange={(e) => updateItem(index, "tax", parseFloat(e.target.value) || 0)}
+                          value={item.tax_rate}
+                          onChange={(e) => updateItem(index, "tax_rate", parseFloat(e.target.value) || 0)}
                         />
                       </div>
 
@@ -487,7 +546,7 @@ export default function InvoiceForm() {
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Additional notes for the invoice..."
+                  placeholder="Additional notes for the customer"
                   rows={3}
                 />
               </div>
@@ -495,23 +554,23 @@ export default function InvoiceForm() {
           </Card>
 
           {/* Actions */}
-          <div className="flex justify-end gap-4">
+          <div className="flex flex-wrap justify-end gap-4">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            {isEditing && (
+            {selectedCustomerId && (
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={handleSendEmail}
-                disabled={isSending || !selectedCustomerId}
+                disabled={isSending}
               >
                 {isSending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Mail className="w-4 h-4 mr-2" />
                 )}
-                {isSending ? "Sending..." : "Send Email"}
+                Send Email
               </Button>
             )}
             <Button type="submit" disabled={saving}>
