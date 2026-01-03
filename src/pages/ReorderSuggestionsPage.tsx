@@ -10,7 +10,18 @@ import {
   RefreshCw,
   Download,
   FileText,
+  Mail,
+  Send,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,6 +67,9 @@ export default function ReorderSuggestionsPage() {
   const [loading, setLoading] = useState(true);
   const [analysisPeriod, setAnalysisPeriod] = useState<"7" | "14" | "30">("30");
   const [targetDays, setTargetDays] = useState<"14" | "30" | "60">("30");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (currentBranch) {
@@ -343,6 +357,56 @@ export default function ReorderSuggestionsPage() {
     toast({ title: "PDF exported successfully" });
   }
 
+  async function sendEmailAlert() {
+    if (!recipientEmail || !currentBranch) {
+      toast({ title: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        toast({ title: "Please log in to send alerts", variant: "destructive" });
+        return;
+      }
+
+      const response = await supabase.functions.invoke('send-stock-alert', {
+        body: {
+          recipientEmail,
+          branchName: currentBranch.name,
+          items: suggestions.map(s => ({
+            product_name: s.product_name,
+            sku: s.sku,
+            current_stock: s.current_stock,
+            low_stock_threshold: s.low_stock_threshold,
+            avg_daily_sales: s.avg_daily_sales,
+            days_of_stock: s.days_of_stock,
+            suggested_order_qty: s.suggested_order_qty,
+            urgency: s.urgency,
+          })),
+          analysisPeriod,
+          targetDays,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send alert');
+      }
+
+      toast({ title: "Stock alert sent successfully", description: `Email sent to ${recipientEmail}` });
+      setEmailDialogOpen(false);
+      setRecipientEmail("");
+    } catch (error: any) {
+      console.error("Error sending stock alert:", error);
+      toast({ title: "Failed to send alert", description: error.message, variant: "destructive" });
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   const criticalCount = suggestions.filter(s => s.urgency === "critical").length;
   const highCount = suggestions.filter(s => s.urgency === "high").length;
   const totalSuggestedUnits = suggestions.reduce((sum, s) => sum + s.suggested_order_qty, 0);
@@ -372,7 +436,15 @@ export default function ReorderSuggestionsPage() {
               Smart recommendations based on sales velocity at {currentBranch.name}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => setEmailDialogOpen(true)} 
+              variant="default" 
+              disabled={loading || suggestions.length === 0}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Email Alert
+            </Button>
             <Button onClick={exportToCSV} variant="outline" disabled={loading || suggestions.length === 0}>
               <Download className="w-4 h-4 mr-2" />
               CSV
@@ -387,6 +459,66 @@ export default function ReorderSuggestionsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Email Alert Dialog */}
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Send Stock Alert
+              </DialogTitle>
+              <DialogDescription>
+                Send an email alert to the purchasing team with {suggestions.length} items that need reordering.
+                {criticalCount > 0 && (
+                  <span className="block mt-2 text-destructive font-medium">
+                    ⚠️ {criticalCount} critical items require immediate attention!
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">
+                  Recipient Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="purchasing@company.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>The email will include:</p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>{criticalCount} critical items</li>
+                  <li>{highCount} high priority items</li>
+                  <li>{totalSuggestedUnits.toLocaleString()} total units suggested</li>
+                </ul>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={sendEmailAlert} disabled={sendingEmail || !recipientEmail}>
+                {sendingEmail ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Alert
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
