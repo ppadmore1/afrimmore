@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      branches: {
+        Row: {
+          address: string | null
+          city: string | null
+          code: string
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          code: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          code?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -418,6 +457,7 @@ export type Database = {
       pos_sales: {
         Row: {
           amount_paid: number
+          branch_id: string | null
           change_amount: number
           created_at: string
           created_by: string | null
@@ -434,6 +474,7 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number
+          branch_id?: string | null
           change_amount?: number
           created_at?: string
           created_by?: string | null
@@ -450,6 +491,7 @@ export type Database = {
         }
         Update: {
           amount_paid?: number
+          branch_id?: string | null
           change_amount?: number
           created_at?: string
           created_by?: string | null
@@ -466,10 +508,62 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "pos_sales_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pos_sales_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_branches: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          low_stock_threshold: number | null
+          product_id: string
+          stock_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number | null
+          product_id: string
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number | null
+          product_id?: string
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_branches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_branches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -690,6 +784,7 @@ export type Database = {
       }
       stock_movements: {
         Row: {
+          branch_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -701,6 +796,7 @@ export type Database = {
           reference_type: string | null
         }
         Insert: {
+          branch_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -712,6 +808,7 @@ export type Database = {
           reference_type?: string | null
         }
         Update: {
+          branch_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -724,10 +821,49 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "stock_movements_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_movements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_branches: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          user_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          user_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_branches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
@@ -758,6 +894,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_branch: {
+        Args: { p_branch_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_user_branches: { Args: { p_user_id: string }; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
