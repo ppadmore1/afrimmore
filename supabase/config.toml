@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-payment-reminder]
 verify_jwt = false
+
+[functions.send-stock-alert]
+verify_jwt = false
