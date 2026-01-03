@@ -51,11 +51,14 @@ const navItems = [
   { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
   { icon: FileCheck, label: "Quotations", path: "/quotations" },
+  { icon: CreditCard, label: "Receipts", path: "/receipts" },
   { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
   { icon: Users, label: "Customers", path: "/customers" },
   { icon: CreditCard, label: "Payments", path: "/payments" },
   { icon: BarChart3, label: "Reports", path: "/reports" },
   { icon: Building2, label: "Branches", path: "/branches", adminOnly: true },
+  { icon: BarChart3, label: "Admin Dashboard", path: "/admin", adminOnly: true },
+  { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
 ];
 
