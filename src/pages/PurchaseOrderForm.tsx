@@ -15,6 +15,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -68,6 +69,12 @@ interface Product {
   unit_price: number;
 }
 
+interface ProductSupplierPrice {
+  product_id: string;
+  cost_price: number;
+  supplier_sku: string | null;
+}
+
 interface Branch {
   id: string;
   name: string;
@@ -97,6 +104,7 @@ export default function PurchaseOrderForm() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [supplierPrices, setSupplierPrices] = useState<ProductSupplierPrice[]>([]);
 
   // Form state
   const [supplierId, setSupplierId] = useState("");
@@ -118,6 +126,31 @@ export default function PurchaseOrderForm() {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  // Load supplier-specific pricing when supplier changes
+  useEffect(() => {
+    if (supplierId) {
+      loadSupplierPrices(supplierId);
+    }
+  }, [supplierId]);
+
+  async function loadSupplierPrices(supplierIdParam: string) {
+    try {
+      const { data, error } = await supabase
+        .from("product_suppliers")
+        .select("product_id, cost_price, supplier_sku")
+        .eq("supplier_id", supplierIdParam);
+
+      if (error) throw error;
+      setSupplierPrices((data || []).map((ps: any) => ({
+        product_id: ps.product_id,
+        cost_price: Number(ps.cost_price) || 0,
+        supplier_sku: ps.supplier_sku,
+      })));
+    } catch (err) {
+      console.error("Error loading supplier prices:", err);
+    }
+  }
 
   useEffect(() => {
     // Check for prefilled items from reorder suggestions
@@ -645,23 +678,36 @@ export default function PurchaseOrderForm() {
                       <CommandList>
                         <CommandEmpty>No products found</CommandEmpty>
                         <CommandGroup>
-                          {filteredProducts.slice(0, 10).map((product) => (
-                            <CommandItem
-                              key={product.id}
-                              onSelect={() => {
-                                setSelectedProduct(product);
-                                setAddUnitCost(Number(product.cost_price) || 0);
-                                setProductSearchOpen(false);
-                              }}
-                            >
-                              <div>
-                                <div className="font-medium">{product.name}</div>
-                                {product.sku && (
-                                  <div className="text-sm text-muted-foreground">SKU: {product.sku}</div>
+                          {filteredProducts.slice(0, 10).map((product) => {
+                            const supplierPrice = supplierPrices.find((sp) => sp.product_id === product.id);
+                            const hasSupplierPrice = !!supplierPrice;
+                            return (
+                              <CommandItem
+                                key={product.id}
+                                onSelect={() => {
+                                  setSelectedProduct(product);
+                                  // Use supplier-specific price if available
+                                  setAddUnitCost(supplierPrice?.cost_price || Number(product.cost_price) || 0);
+                                  setProductSearchOpen(false);
+                                }}
+                              >
+                                <div className="flex-1">
+                                  <div className="font-medium">{product.name}</div>
+                                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                    {product.sku && <span>SKU: {product.sku}</span>}
+                                    {supplierPrice?.supplier_sku && (
+                                      <span className="text-primary">Supplier: {supplierPrice.supplier_sku}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {hasSupplierPrice && (
+                                  <Badge variant="secondary" className="ml-2">
+                                    ${supplierPrice.cost_price.toFixed(2)}
+                                  </Badge>
                                 )}
-                              </div>
-                            </CommandItem>
-                          ))}
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>
