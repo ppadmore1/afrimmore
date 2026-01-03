@@ -16,6 +16,7 @@ import {
   Barcode,
   Package,
   Camera,
+  AlertTriangle,
 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
@@ -43,8 +44,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranch } from "@/contexts/BranchContext";
 
-type Product = Tables<"products">;
+type Product = Tables<"products"> & {
+  branch_stock?: number;
+  branch_threshold?: number;
+};
 type Customer = Tables<"customers">;
 
 interface CartItem {
@@ -64,6 +69,7 @@ const paymentMethods: { value: PaymentMethod; label: string; icon: React.Element
 
 export default function POSPage() {
   const { user } = useAuth();
+  const { currentBranch } = useBranch();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +108,7 @@ export default function POSPage() {
   } | null>(null);
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentBranch]);
 
   async function loadData() {
     try {
@@ -114,7 +120,30 @@ export default function POSPage() {
       if (productsRes.error) throw productsRes.error;
       if (customersRes.error) throw customersRes.error;
 
-      setProducts(productsRes.data || []);
+      let productsWithBranchStock = productsRes.data || [];
+
+      // If a branch is selected, get branch-specific stock
+      if (currentBranch) {
+        const { data: branchStock, error: branchStockError } = await supabase
+          .from("product_branches")
+          .select("product_id, stock_quantity, low_stock_threshold")
+          .eq("branch_id", currentBranch.id);
+
+        if (!branchStockError && branchStock) {
+          const stockMap = new Map(branchStock.map(bs => [bs.product_id, bs]));
+          
+          productsWithBranchStock = productsRes.data?.map(product => {
+            const branchStockInfo = stockMap.get(product.id);
+            return {
+              ...product,
+              branch_stock: branchStockInfo?.stock_quantity ?? 0,
+              branch_threshold: branchStockInfo?.low_stock_threshold ?? product.low_stock_threshold ?? 10,
+            };
+          }) || [];
+        }
+      }
+
+      setProducts(productsWithBranchStock);
       setCustomers(customersRes.data || []);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -128,6 +157,21 @@ export default function POSPage() {
     }
   }
 
+  // Get the effective stock for a product (branch stock if selected, otherwise global)
+  const getEffectiveStock = (product: Product) => {
+    if (currentBranch && product.branch_stock !== undefined) {
+      return product.branch_stock;
+    }
+    return product.stock_quantity;
+  };
+
+  const getEffectiveThreshold = (product: Product) => {
+    if (currentBranch && product.branch_threshold !== undefined) {
+      return product.branch_threshold;
+    }
+    return product.low_stock_threshold || 10;
+  };
+
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,10 +180,14 @@ export default function POSPage() {
   );
 
   const addToCart = (product: Product) => {
-    if (product.stock_quantity <= 0) {
+    const stock = getEffectiveStock(product);
+    
+    if (stock <= 0) {
       toast({
         title: "Out of Stock",
-        description: `${product.name} is out of stock`,
+        description: currentBranch 
+          ? `${product.name} is out of stock at ${currentBranch.name}`
+          : `${product.name} is out of stock`,
         variant: "destructive",
       });
       return;
@@ -149,10 +197,12 @@ export default function POSPage() {
       const existingIndex = prev.findIndex((item) => item.product.id === product.id);
       if (existingIndex >= 0) {
         const currentQty = prev[existingIndex].quantity;
-        if (currentQty >= product.stock_quantity) {
+        if (currentQty >= stock) {
           toast({
             title: "Insufficient Stock",
-            description: `Only ${product.stock_quantity} available`,
+            description: currentBranch
+              ? `Only ${stock} available at ${currentBranch.name}`
+              : `Only ${stock} available`,
             variant: "destructive",
           });
           return prev;
@@ -171,13 +221,17 @@ export default function POSPage() {
       if (index < 0) return prev;
 
       const newQty = prev[index].quantity + delta;
+      const stock = getEffectiveStock(prev[index].product);
+      
       if (newQty <= 0) {
         return prev.filter((item) => item.product.id !== productId);
       }
-      if (newQty > prev[index].product.stock_quantity) {
+      if (newQty > stock) {
         toast({
           title: "Insufficient Stock",
-          description: `Only ${prev[index].product.stock_quantity} available`,
+          description: currentBranch
+            ? `Only ${stock} available at ${currentBranch.name}`
+            : `Only ${stock} available`,
           variant: "destructive",
         });
         return prev;
@@ -373,6 +427,16 @@ export default function POSPage() {
         {/* Products Section */}
         <div className="flex-1 flex flex-col min-h-0">
           <div className="space-y-4 mb-4">
+            {/* Branch indicator */}
+            {currentBranch && (
+              <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
+                <Building2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">
+                  Showing inventory for: <strong>{currentBranch.name}</strong>
+                </span>
+              </div>
+            )}
+            
           <div className="flex flex-col sm:flex-row gap-3">
               {/* Barcode Scanner Input */}
               <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
@@ -431,48 +495,56 @@ export default function POSPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <AnimatePresence mode="popLayout">
-                  {filteredProducts.map((product) => (
-                    <motion.div
-                      key={product.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                    >
-                      <Card
-                        className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
-                          product.stock_quantity <= 0 ? "opacity-50" : ""
-                        }`}
-                        onClick={() => addToCart(product)}
+                  {filteredProducts.map((product) => {
+                    const stock = getEffectiveStock(product);
+                    const threshold = getEffectiveThreshold(product);
+                    const isLowStock = stock > 0 && stock <= threshold;
+                    const isOutOfStock = stock <= 0;
+                    
+                    return (
+                      <motion.div
+                        key={product.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
                       >
-                        <CardContent className="p-4">
-                          <div className="aspect-square mb-3 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Package className="w-8 h-8 text-muted-foreground" />
-                            )}
-                          </div>
-                          <h3 className="font-medium text-sm truncate">{product.name}</h3>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="font-bold text-primary font-mono">
-                              ${product.unit_price.toFixed(2)}
-                            </span>
-                            <Badge
-                              variant={product.stock_quantity <= (product.low_stock_threshold || 10) ? "destructive" : "secondary"}
-                              className="text-xs"
-                            >
-                              {product.stock_quantity}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
+                        <Card
+                          className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                            isOutOfStock ? "opacity-50" : ""
+                          }`}
+                          onClick={() => addToCart(product)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="aspect-square mb-3 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                              {product.image_url ? (
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Package className="w-8 h-8 text-muted-foreground" />
+                              )}
+                            </div>
+                            <h3 className="font-medium text-sm truncate">{product.name}</h3>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="font-bold text-primary font-mono">
+                                ${product.unit_price.toFixed(2)}
+                              </span>
+                              <Badge
+                                variant={isOutOfStock ? "destructive" : isLowStock ? "secondary" : "outline"}
+                                className="text-xs"
+                              >
+                                {isOutOfStock && <AlertTriangle className="w-3 h-3 mr-1" />}
+                                {stock}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
             )}
