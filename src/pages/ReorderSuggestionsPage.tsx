@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Package, 
@@ -15,6 +16,7 @@ import {
   Settings,
   Save,
   Clock,
+  ClipboardList,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +58,8 @@ import { toast } from "@/hooks/use-toast";
 import { subDays, format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface ReorderSuggestion {
   product_id: string;
@@ -71,8 +75,10 @@ interface ReorderSuggestion {
 }
 
 export default function ReorderSuggestionsPage() {
+  const navigate = useNavigate();
   const { currentBranch } = useBranch();
   const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [analysisPeriod, setAnalysisPeriod] = useState<"7" | "14" | "30">("30");
   const [targetDays, setTargetDays] = useState<"14" | "30" | "60">("30");
@@ -462,6 +468,43 @@ export default function ReorderSuggestionsPage() {
   const highCount = suggestions.filter(s => s.urgency === "high").length;
   const totalSuggestedUnits = suggestions.reduce((sum, s) => sum + s.suggested_order_qty, 0);
 
+  function toggleSelectAll() {
+    if (selectedItems.size === suggestions.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(suggestions.map(s => s.product_id)));
+    }
+  }
+
+  function toggleSelectItem(productId: string) {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedItems(newSelected);
+  }
+
+  function createPurchaseOrder() {
+    const selectedSuggestions = suggestions.filter(s => selectedItems.has(s.product_id));
+    if (selectedSuggestions.length === 0) {
+      toast({ title: "Please select items to order", variant: "destructive" });
+      return;
+    }
+
+    const items = selectedSuggestions.map(s => ({
+      product_id: s.product_id,
+      product_name: s.product_name,
+      sku: s.sku,
+      quantity: s.suggested_order_qty,
+      unit_cost: 0,
+    }));
+
+    const itemsParam = encodeURIComponent(JSON.stringify(items));
+    navigate(`/purchase-orders/new?items=${itemsParam}`);
+  }
+
   if (!currentBranch) {
     return (
       <AppLayout>
@@ -489,8 +532,15 @@ export default function ReorderSuggestionsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button 
+              onClick={createPurchaseOrder}
+              disabled={loading || selectedItems.size === 0}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Create PO ({selectedItems.size})
+            </Button>
+            <Button 
               onClick={() => setEmailDialogOpen(true)} 
-              variant="default" 
+              variant="outline" 
               disabled={loading || suggestions.length === 0}
             >
               <Mail className="w-4 h-4 mr-2" />
@@ -740,6 +790,12 @@ export default function ReorderSuggestionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={selectedItems.size === suggestions.length && suggestions.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead className="text-center">Urgency</TableHead>
@@ -753,7 +809,19 @@ export default function ReorderSuggestionsPage() {
                 </TableHeader>
                 <TableBody>
                   {suggestions.map((item) => (
-                    <TableRow key={item.product_id} className={item.urgency === "critical" ? "bg-destructive/5" : ""}>
+                    <TableRow 
+                      key={item.product_id} 
+                      className={cn(
+                        item.urgency === "critical" ? "bg-destructive/5" : "",
+                        selectedItems.has(item.product_id) ? "bg-primary/5" : ""
+                      )}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedItems.has(item.product_id)}
+                          onCheckedChange={() => toggleSelectItem(item.product_id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {item.urgency === "critical" && (

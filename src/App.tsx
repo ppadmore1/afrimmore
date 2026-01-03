@@ -29,6 +29,9 @@ import BranchesPage from "./pages/BranchesPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import BranchStockComparisonPage from "./pages/BranchStockComparisonPage";
 import ReorderSuggestionsPage from "./pages/ReorderSuggestionsPage";
+import SuppliersPage from "./pages/SuppliersPage";
+import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
+import PurchaseOrderForm from "./pages/PurchaseOrderForm";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +72,10 @@ const App = () => (
               <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
               <Route path="/branch-stock" element={<ProtectedRoute><BranchStockComparisonPage /></ProtectedRoute>} />
               <Route path="/reorder" element={<ProtectedRoute><ReorderSuggestionsPage /></ProtectedRoute>} />
+              <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
+              <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrdersPage /></ProtectedRoute>} />
+              <Route path="/purchase-orders/new" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
+              <Route path="/purchase-orders/:id" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

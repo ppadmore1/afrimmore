@@ -20,6 +20,7 @@ import {
   Building2,
   GitCompare,
   PackageSearch,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,8 @@ const navItems = [
   { icon: Package, label: "Inventory", path: "/inventory" },
   { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
   { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder" },
+  { icon: Truck, label: "Suppliers", path: "/suppliers" },
+  { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
   { icon: FileCheck, label: "Quotations", path: "/quotations" },
   { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
