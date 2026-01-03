@@ -49,6 +49,7 @@ const navItems = [
   { icon: CreditCard, label: "Payments", path: "/payments" },
   { icon: BarChart3, label: "Reports", path: "/reports" },
   { icon: Building2, label: "Branches", path: "/branches", adminOnly: true },
+  { icon: Users, label: "User Management", path: "/users", adminOnly: true },
 ];
 
 interface AppLayoutProps {

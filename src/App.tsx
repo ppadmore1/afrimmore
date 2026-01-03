@@ -26,6 +26,7 @@ import CustomerDetail from "./pages/CustomerDetail";
 import PaymentsPage from "./pages/PaymentsPage";
 import ReportsPage from "./pages/ReportsPage";
 import BranchesPage from "./pages/BranchesPage";
+import UserManagementPage from "./pages/UserManagementPage";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
               <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
