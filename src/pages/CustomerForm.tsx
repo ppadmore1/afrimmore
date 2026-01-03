@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCustomer, addCustomer, updateCustomer, Customer } from "@/lib/db";
+import { getCustomer, addCustomer, updateCustomer } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 
 export default function CustomerForm() {
@@ -23,8 +22,11 @@ export default function CustomerForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [billingAddress, setBillingAddress] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (isEditing && id) {
@@ -37,13 +39,17 @@ export default function CustomerForm() {
       const customer = await getCustomer(customerId);
       if (customer) {
         setName(customer.name);
-        setEmail(customer.email);
-        setPhone(customer.phone);
-        setBillingAddress(customer.billingAddress);
-        setShippingAddress(customer.shippingAddress);
+        setEmail(customer.email || "");
+        setPhone(customer.phone || "");
+        setAddress(customer.address || "");
+        setCity(customer.city || "");
+        setCountry(customer.country || "");
+        setTaxId(customer.tax_id || "");
+        setNotes(customer.notes || "");
       }
     } catch (error) {
       console.error("Error loading customer:", error);
+      toast({ title: "Error loading customer", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -60,27 +66,28 @@ export default function CustomerForm() {
     setSaving(true);
 
     try {
-      const customer: Customer = {
-        id: isEditing && id ? id : uuidv4(),
+      const customerData = {
         name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        billingAddress: billingAddress.trim(),
-        shippingAddress: shippingAddress.trim(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+        city: city.trim() || null,
+        country: country.trim() || null,
+        tax_id: taxId.trim() || null,
+        notes: notes.trim() || null,
       };
 
-      if (isEditing) {
-        await updateCustomer(customer);
+      if (isEditing && id) {
+        await updateCustomer(id, customerData);
         toast({ title: "Customer updated successfully" });
       } else {
-        await addCustomer(customer);
+        await addCustomer(customerData);
         toast({ title: "Customer created successfully" });
       }
 
       navigate("/customers");
     } catch (error) {
+      console.error("Error saving customer:", error);
       toast({ title: "Error saving customer", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -158,25 +165,55 @@ export default function CustomerForm() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="billingAddress">Billing Address</Label>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="address">Address</Label>
                 <Textarea
-                  id="billingAddress"
-                  value={billingAddress}
-                  onChange={(e) => setBillingAddress(e.target.value)}
-                  placeholder="Enter billing address"
-                  rows={4}
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street address"
+                  rows={2}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="shippingAddress">Shipping Address</Label>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="Country"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="taxId">Tax ID / VAT Number</Label>
+                <Input
+                  id="taxId"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  placeholder="Tax identification number"
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="notes">Notes</Label>
                 <Textarea
-                  id="shippingAddress"
-                  value={shippingAddress}
-                  onChange={(e) => setShippingAddress(e.target.value)}
-                  placeholder="Enter shipping address (if different)"
-                  rows={4}
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Additional notes about this customer"
+                  rows={3}
                 />
               </div>
             </CardContent>
