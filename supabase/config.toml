@@ -1,8 +1,16 @@
 project_id = "exxrhowfpflufhxdcavo"
 
-# User-facing functions: JWT verification enabled (default)
-# These functions also have internal auth validation for defense-in-depth
+# Disable JWT verification for all edge functions
+# These functions handle their own auth validation internally where needed
 
-# scheduled-stock-alert: JWT disabled for cron job access (uses service role internally)
+[functions.send-document-email]
+verify_jwt = false
+
+[functions.send-payment-reminder]
+verify_jwt = false
+
+[functions.send-stock-alert]
+verify_jwt = false
+
 [functions.scheduled-stock-alert]
 verify_jwt = false
