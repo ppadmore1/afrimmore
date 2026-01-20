@@ -23,6 +23,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandHint,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -430,6 +431,7 @@ export default function QuotationForm() {
                             ))}
                           </CommandGroup>
                         </CommandList>
+                        <CommandHint />
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -567,6 +569,7 @@ export default function QuotationForm() {
                                   ))}
                                 </CommandGroup>
                               </CommandList>
+                              <CommandHint />
                             </Command>
                           </PopoverContent>
                         </Popover>

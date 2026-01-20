@@ -24,6 +24,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandHint,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -353,6 +354,7 @@ export default function DeliveryNoteForm() {
                             ))}
                           </CommandGroup>
                         </CommandList>
+                        <CommandHint />
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -489,6 +491,7 @@ export default function DeliveryNoteForm() {
                                   ))}
                                 </CommandGroup>
                               </CommandList>
+                              <CommandHint />
                             </Command>
                           </PopoverContent>
                         </Popover>
