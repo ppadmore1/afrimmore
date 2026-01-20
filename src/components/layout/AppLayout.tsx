@@ -21,6 +21,8 @@ import {
   GitCompare,
   PackageSearch,
   ClipboardList,
+  Boxes,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,7 +46,8 @@ import { toast } from "@/hooks/use-toast";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: ShoppingCart, label: "POS", path: "/pos" },
-  { icon: Package, label: "Inventory", path: "/inventory" },
+  { icon: Tag, label: "Products", path: "/products" },
+  { icon: Boxes, label: "Inventory", path: "/inventory" },
   { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
   { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder" },
   { icon: Truck, label: "Suppliers", path: "/suppliers" },
