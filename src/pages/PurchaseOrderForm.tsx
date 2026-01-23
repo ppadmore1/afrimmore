@@ -758,13 +758,13 @@ export default function PurchaseOrderForm() {
               </div>
               <div className="space-y-2">
                 <Label>Destination Branch</Label>
-                <Select value={branchId} onValueChange={setBranchId}>
+              <Select value={branchId || "all"} onValueChange={(val) => setBranchId(val === "all" ? "" : val)}>
                   <SelectTrigger>
                     <Package className="w-4 h-4 mr-2 text-muted-foreground" />
                     <SelectValue placeholder="All branches" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    <SelectItem value="">All Branches</SelectItem>
+                    <SelectItem value="all">All Branches</SelectItem>
                     {branches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {branch.name}
