@@ -6,10 +6,9 @@ import {
   Building2,
   MoreHorizontal,
   UserCog,
-  Check,
-  X,
   Loader2,
   Mail,
+  Trash2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -24,9 +23,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,6 +49,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranch, Branch } from "@/contexts/BranchContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -73,6 +84,7 @@ const roleLabels: Record<string, { label: string; color: string }> = {
 
 export default function UserManagementPage() {
   const { branches, isAdmin } = useBranch();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,6 +96,11 @@ export default function UserManagementPage() {
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [defaultBranch, setDefaultBranch] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithDetails | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -221,6 +238,60 @@ export default function UserManagementPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openDeleteDialog(user: UserWithDetails) {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  }
+
+  async function handleDelete() {
+    if (!userToDelete) return;
+
+    // Prevent self-deletion
+    if (userToDelete.id === currentUser?.id) {
+      toast({ 
+        title: "Cannot delete yourself", 
+        description: "You cannot remove your own account.",
+        variant: "destructive" 
+      });
+      setDeleteDialogOpen(false);
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      // Delete user branches
+      const { error: branchesError } = await supabase
+        .from('user_branches')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      if (branchesError) throw branchesError;
+
+      // Delete user role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      if (roleError) throw roleError;
+
+      toast({ title: "User access removed successfully" });
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      loadUsers();
+    } catch (error: any) {
+      console.error("Error removing user:", error);
+      toast({ 
+        title: "Error removing user", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -367,6 +438,15 @@ export default function UserManagementPage() {
                         <DropdownMenuItem onClick={() => openEditDialog(user)} className="cursor-pointer">
                           <UserCog className="w-4 h-4 mr-2" />
                           Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => openDeleteDialog(user)} 
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                          disabled={user.id === currentUser?.id}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remove Access
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -522,6 +602,38 @@ export default function UserManagementPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove User Access</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove access for{" "}
+                <span className="font-semibold">{userToDelete?.full_name || userToDelete?.email}</span>?
+                <br /><br />
+                This will remove their role and all branch assignments. They will no longer be able to access the system.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete} 
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  "Remove Access"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </AppLayout>
   );
