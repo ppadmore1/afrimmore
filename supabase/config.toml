@@ -1,5 +1,8 @@
 project_id = "exxrhowfpflufhxdcavo"
 
+[functions.send-user-invite]
+verify_jwt = false
+
 # Disable JWT verification for all edge functions
 # These functions handle their own auth validation internally where needed
 
