@@ -402,6 +402,45 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          branch_ids: string[] | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          resent_at: string | null
+          resent_count: number
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+        }
+        Insert: {
+          branch_ids?: string[] | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          resent_at?: string | null
+          resent_count?: number
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+        }
+        Update: {
+          branch_ids?: string[] | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          resent_at?: string | null
+          resent_count?: number
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string

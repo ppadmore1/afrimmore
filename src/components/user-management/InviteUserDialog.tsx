@@ -66,7 +66,8 @@ export function InviteUserDialog({ branches, inviterName }: InviteUserDialogProp
 
       const signupUrl = `${window.location.origin}/auth`;
 
-      const { data, error } = await supabase.functions.invoke("send-user-invite", {
+      // Send the invitation email
+      const { error: sendError } = await supabase.functions.invoke("send-user-invite", {
         body: {
           email,
           role: selectedRole,
@@ -76,7 +77,21 @@ export function InviteUserDialog({ branches, inviterName }: InviteUserDialogProp
         },
       });
 
-      if (error) throw error;
+      if (sendError) throw sendError;
+
+      // Save invitation to database for tracking
+      const { error: dbError } = await supabase
+        .from('invitations')
+        .insert({
+          email,
+          role: selectedRole as 'admin' | 'staff' | 'cashier',
+          branch_ids: selectedBranches,
+        });
+
+      if (dbError) {
+        console.error("Failed to save invitation record:", dbError);
+        // Don't throw - email was sent successfully
+      }
 
       toast({ 
         title: "Invitation sent!", 
@@ -87,6 +102,9 @@ export function InviteUserDialog({ branches, inviterName }: InviteUserDialogProp
       setEmail("");
       setSelectedRole("staff");
       setSelectedBranches([]);
+      
+      // Trigger a refresh of the invitations list
+      window.dispatchEvent(new CustomEvent('invitation-sent'));
     } catch (error: any) {
       console.error("Error sending invitation:", error);
       toast({
