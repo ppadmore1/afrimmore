@@ -14,7 +14,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -48,9 +48,10 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { useBranch, Branch } from "@/contexts/BranchContext";
+import { useBranch } from "@/contexts/BranchContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { InviteUserDialog } from "@/components/user-management/InviteUserDialog";
 
 interface UserProfile {
   id: string;
@@ -325,6 +326,10 @@ export default function UserManagementPage() {
             <h1 className="text-3xl font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground mt-1">Manage user roles and branch assignments</p>
           </div>
+          <InviteUserDialog 
+            branches={branches} 
+            inviterName={users.find(u => u.id === currentUser?.id)?.full_name || undefined}
+          />
         </div>
 
         {/* Search */}
