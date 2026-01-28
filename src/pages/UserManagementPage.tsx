@@ -52,6 +52,7 @@ import { useBranch } from "@/contexts/BranchContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { InviteUserDialog } from "@/components/user-management/InviteUserDialog";
+import { PendingInvitations } from "@/components/user-management/PendingInvitations";
 
 interface UserProfile {
   id: string;
@@ -385,6 +386,12 @@ export default function UserManagementPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Pending Invitations */}
+        <PendingInvitations 
+          branches={branches} 
+          inviterName={users.find(u => u.id === currentUser?.id)?.full_name || undefined}
+        />
 
         {/* Users List */}
         {loading ? (
