@@ -128,18 +128,22 @@ export default function CompanySettingsPage() {
 
     setSaving(true);
     try {
+      // Extract id and prepare data for save
+      const { id, ...settingsWithoutId } = settings;
       const settingsData = {
-        ...settings,
+        ...settingsWithoutId,
         branch_id: currentBranch?.id || null,
       };
 
-      if (settings.id) {
+      if (id) {
+        // Update existing settings
         const { error } = await supabase
           .from('company_settings')
           .update(settingsData)
-          .eq('id', settings.id);
+          .eq('id', id);
         if (error) throw error;
       } else {
+        // Insert new settings
         const { data, error } = await supabase
           .from('company_settings')
           .insert(settingsData)
