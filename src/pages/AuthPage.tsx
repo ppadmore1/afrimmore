@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Store, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Store, Mail, Lock, User, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 
 const emailSchema = z.string().email('Invalid email address').max(255, 'Email is too long');
 const passwordSchema = z.string()
@@ -21,35 +22,81 @@ const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(1
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isResetPassword, setIsResetPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; confirmPassword?: string }>({});
   
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Check for password reset token in URL (from email link)
+  useEffect(() => {
+    const checkForRecoverySession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      // Check if this is a recovery session (user clicked reset link)
+      if (session?.user && window.location.hash.includes('type=recovery')) {
+        setIsResetPassword(true);
+      }
+    };
+
+    // Listen for auth state changes to detect recovery flow
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResetPassword(true);
+      }
+    });
+
+    checkForRecoverySession();
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !isResetPassword) {
       navigate('/', { replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isResetPassword]);
 
   const validate = () => {
     const newErrors: typeof errors = {};
     
-    const emailResult = emailSchema.safeParse(email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
+    if (!isResetPassword && !isForgotPassword) {
+      const emailResult = emailSchema.safeParse(email);
+      if (!emailResult.success) {
+        newErrors.email = emailResult.error.errors[0].message;
+      }
+    }
+
+    if (isForgotPassword) {
+      const emailResult = emailSchema.safeParse(email);
+      if (!emailResult.success) {
+        newErrors.email = emailResult.error.errors[0].message;
+      }
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
     }
     
-    const passwordResult = passwordSchema.safeParse(password);
-    if (!passwordResult.success) {
-      newErrors.password = passwordResult.error.errors[0].message;
+    if (!isForgotPassword) {
+      const passwordResult = passwordSchema.safeParse(password);
+      if (!passwordResult.success) {
+        newErrors.password = passwordResult.error.errors[0].message;
+      }
+    }
+
+    if (isResetPassword) {
+      if (password !== confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
     }
     
-    if (!isLogin) {
+    if (!isLogin && !isResetPassword && !isForgotPassword) {
       const nameResult = nameSchema.safeParse(fullName);
       if (!nameResult.success) {
         newErrors.fullName = nameResult.error.errors[0].message;
@@ -58,6 +105,61 @@ export default function AuthPage() {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      
+      if (error) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Check your email',
+          description: 'We sent you a password reset link.',
+        });
+        setIsForgotPassword(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      
+      if (error) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Password updated',
+          description: 'Your password has been successfully updated.',
+        });
+        setIsResetPassword(false);
+        navigate('/', { replace: true });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,109 +297,245 @@ export default function AuthPage() {
           <Card className="border-0 shadow-elevated">
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl font-bold">
-                {isLogin ? 'Welcome back' : 'Create account'}
+                {isResetPassword 
+                  ? 'Set new password' 
+                  : isForgotPassword 
+                    ? 'Reset password'
+                    : isLogin 
+                      ? 'Welcome back' 
+                      : 'Create account'}
               </CardTitle>
               <CardDescription>
-                {isLogin 
-                  ? 'Enter your credentials to access your account' 
-                  : 'Fill in your details to get started'}
+                {isResetPassword 
+                  ? 'Enter your new password below'
+                  : isForgotPassword
+                    ? 'Enter your email to receive a reset link'
+                    : isLogin 
+                      ? 'Enter your credentials to access your account' 
+                      : 'Fill in your details to get started'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
+              {/* Reset Password Form */}
+              {isResetPassword ? (
+                <form onSubmit={handleResetPassword} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
+                    <Label htmlFor="password">New Password</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        id="fullName"
-                        type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        id="password"
+                        type="password"
+                        placeholder="••••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="pl-10"
                       />
                     </div>
-                    {errors.fullName && (
-                      <p className="text-sm text-destructive">{errors.fullName}</p>
+                    {errors.password && (
+                      <p className="text-sm text-destructive">{errors.password}</p>
                     )}
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password}</p>
-                  )}
-                  {!isLogin && !errors.password && (
                     <p className="text-xs text-muted-foreground">
                       Min 10 characters with uppercase, lowercase, and number
                     </p>
-                  )}
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 gradient-primary text-primary-foreground"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      {isLogin ? 'Sign In' : 'Create Account'}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              </form>
-              
-              <div className="mt-6 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setErrors({});
-                  }}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {isLogin ? (
-                    <>Don't have an account? <span className="text-primary font-medium">Sign up</span></>
-                  ) : (
-                    <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
-                  )}
-                </button>
-              </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="••••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full h-11 gradient-primary text-primary-foreground"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        Update Password
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              ) : isForgotPassword ? (
+                /* Forgot Password Form */
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    {errors.email && (
+                      <p className="text-sm text-destructive">{errors.email}</p>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full h-11 gradient-primary text-primary-foreground"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        Send Reset Link
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="mt-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(false);
+                        setErrors({});
+                      }}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Back to <span className="text-primary font-medium">Sign in</span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* Login/Signup Form */
+                <>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {!isLogin && (
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName">Full Name</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="fullName"
+                            type="text"
+                            placeholder="John Doe"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+                        {errors.fullName && (
+                          <p className="text-sm text-destructive">{errors.fullName}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {errors.password && (
+                        <p className="text-sm text-destructive">{errors.password}</p>
+                      )}
+                      {!isLogin && !errors.password && (
+                        <p className="text-xs text-muted-foreground">
+                          Min 10 characters with uppercase, lowercase, and number
+                        </p>
+                      )}
+                    </div>
+
+                    {isLogin && (
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsForgotPassword(true);
+                            setErrors({});
+                          }}
+                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full h-11 gradient-primary text-primary-foreground"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          {isLogin ? 'Sign In' : 'Create Account'}
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                  
+                  <div className="mt-6 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLogin(!isLogin);
+                        setErrors({});
+                      }}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {isLogin ? (
+                        <>Don't have an account? <span className="text-primary font-medium">Sign up</span></>
+                      ) : (
+                        <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
