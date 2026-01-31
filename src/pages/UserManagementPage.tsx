@@ -9,6 +9,10 @@ import {
   Loader2,
   Mail,
   Trash2,
+  Eye,
+  KeyRound,
+  Phone,
+  Calendar,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -103,6 +107,13 @@ export default function UserManagementPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // View profile dialog state
+  const [viewProfileOpen, setViewProfileOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<UserWithDetails | null>(null);
+  
+  // Password reset state
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -297,6 +308,46 @@ export default function UserManagementPage() {
     }
   }
 
+  function openViewProfile(user: UserWithDetails) {
+    setViewingUser(user);
+    setViewProfileOpen(true);
+  }
+
+  async function handlePasswordReset(user: UserWithDetails) {
+    if (!user.email) {
+      toast({ 
+        title: "Cannot reset password", 
+        description: "User has no email address.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setResettingPassword(user.id);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Password reset email sent", 
+        description: `A password reset link has been sent to ${user.email}` 
+      });
+    } catch (error: any) {
+      console.error("Error sending password reset:", error);
+      toast({ 
+        title: "Error sending password reset", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      setResettingPassword(null);
+    }
+  }
+
   const filteredUsers = users.filter(user =>
     (user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
     (user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
@@ -447,9 +498,25 @@ export default function UserManagementPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-popover">
+                        <DropdownMenuItem onClick={() => openViewProfile(user)} className="cursor-pointer">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Profile
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditDialog(user)} className="cursor-pointer">
                           <UserCog className="w-4 h-4 mr-2" />
                           Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handlePasswordReset(user)} 
+                          className="cursor-pointer"
+                          disabled={resettingPassword === user.id || !user.email}
+                        >
+                          {resettingPassword === user.id ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <KeyRound className="w-4 h-4 mr-2" />
+                          )}
+                          Reset Password
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
@@ -646,6 +713,97 @@ export default function UserManagementPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* View Profile Dialog */}
+        <Dialog open={viewProfileOpen} onOpenChange={setViewProfileOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>User Profile</DialogTitle>
+            </DialogHeader>
+            {viewingUser && (
+              <div className="space-y-6">
+                {/* Avatar and Name */}
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
+                    {viewingUser.full_name?.charAt(0).toUpperCase() || viewingUser.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">{viewingUser.full_name || "Unnamed User"}</h3>
+                    {viewingUser.role && (
+                      <Badge className={roleLabels[viewingUser.role]?.color}>
+                        {roleLabels[viewingUser.role]?.label}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <span>{viewingUser.email || "No email"}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span>Joined {new Date(viewingUser.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                {/* Branch Assignments */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Branch Access</Label>
+                  {viewingUser.branches.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {viewingUser.branches.map(branchId => {
+                        const branch = branches.find(b => b.id === branchId);
+                        const isDefault = branchId === viewingUser.defaultBranchId;
+                        return branch ? (
+                          <Badge 
+                            key={branchId} 
+                            variant={isDefault ? "default" : "outline"}
+                          >
+                            {branch.name}
+                            {isDefault && " (Default)"}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  ) : viewingUser.role === 'admin' ? (
+                    <p className="text-sm text-muted-foreground">Admin - Access to all branches</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No branches assigned</p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setViewProfileOpen(false);
+                      openEditDialog(viewingUser);
+                    }}
+                  >
+                    <UserCog className="w-4 h-4 mr-2" />
+                    Edit User
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => handlePasswordReset(viewingUser)}
+                    disabled={resettingPassword === viewingUser.id || !viewingUser.email}
+                  >
+                    {resettingPassword === viewingUser.id ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <KeyRound className="w-4 h-4 mr-2" />
+                    )}
+                    Reset Password
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </AppLayout>
   );
