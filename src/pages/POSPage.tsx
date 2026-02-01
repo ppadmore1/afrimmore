@@ -17,6 +17,9 @@ import {
   Package,
   Camera,
   AlertTriangle,
+  WifiOff,
+  CloudOff,
+  RefreshCw,
 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
@@ -45,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
+import { useOfflinePOS } from "@/hooks/useOfflinePOS";
 
 type Product = Tables<"products"> & {
   branch_stock?: number;
@@ -72,6 +76,18 @@ export default function POSPage() {
   const { currentBranch } = useBranch();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Offline POS hook
+  const {
+    offlineProducts,
+    offlineCustomers,
+    pendingSales,
+    online,
+    syncing,
+    cacheForOffline,
+    processOfflineSale,
+    syncPendingSales,
+  } = useOfflinePOS(currentBranch?.id || null);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -105,12 +121,33 @@ export default function POSPage() {
     amountPaid: number;
     changeAmount: number;
     paymentMethod: string;
+    isOffline?: boolean;
   } | null>(null);
+
   useEffect(() => {
     loadData();
   }, [currentBranch]);
 
+  // Use offline products if we're offline and have cached data
+  useEffect(() => {
+    if (!online && offlineProducts.length > 0 && loading) {
+      setProducts(offlineProducts as Product[]);
+      setCustomers(offlineCustomers as Customer[]);
+      setLoading(false);
+    }
+  }, [online, offlineProducts, offlineCustomers, loading]);
+
   async function loadData() {
+    // If offline, use cached data
+    if (!navigator.onLine) {
+      if (offlineProducts.length > 0) {
+        setProducts(offlineProducts as Product[]);
+        setCustomers(offlineCustomers as Customer[]);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const [productsRes, customersRes] = await Promise.all([
         supabase.from("products").select("*").eq("is_active", true).order("name"),
@@ -145,13 +182,27 @@ export default function POSPage() {
 
       setProducts(productsWithBranchStock);
       setCustomers(customersRes.data || []);
+      
+      // Cache for offline use
+      await cacheForOffline(productsWithBranchStock as any, customersRes.data || []);
     } catch (error) {
       console.error("Error loading data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load products",
-        variant: "destructive",
-      });
+      
+      // Fall back to cached data if available
+      if (offlineProducts.length > 0) {
+        setProducts(offlineProducts as Product[]);
+        setCustomers(offlineCustomers as Customer[]);
+        toast({
+          title: "Using cached data",
+          description: "Showing locally saved products",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load products",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -300,7 +351,7 @@ export default function POSPage() {
   const total = subtotal + taxTotal;
   const changeAmount = parseFloat(amountReceived) - total;
 
-  // Sale number is now generated atomically in the database function
+  // Sale number is now generated atomically in the database function (or offline)
 
   const processPayment = async () => {
     if (cart.length === 0) return;
@@ -316,7 +367,58 @@ export default function POSPage() {
     setProcessingPayment(true);
 
     try {
-      // Prepare items data for atomic database function
+      // If offline, process locally
+      if (!online) {
+        const offlineSale = await processOfflineSale(
+          cart.map(item => ({
+            product: item.product as any,
+            quantity: item.quantity,
+            discount: item.discount,
+          })),
+          selectedCustomer?.id || null,
+          selectedCustomer?.name || null,
+          selectedPaymentMethod,
+          parseFloat(amountReceived) || total,
+          user?.id || null
+        );
+
+        if (offlineSale) {
+          const receiptData = {
+            saleNumber: offlineSale.sale_number,
+            date: new Date(offlineSale.created_at),
+            customerName: offlineSale.customer_name,
+            items: offlineSale.items.map(item => ({
+              name: item.product_name,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              discount: item.discount,
+              taxRate: item.tax_rate,
+              total: item.total,
+            })),
+            subtotal: offlineSale.subtotal,
+            taxTotal: offlineSale.tax_total,
+            discountTotal: offlineSale.discount_total,
+            total: offlineSale.total,
+            amountPaid: offlineSale.amount_paid,
+            changeAmount: offlineSale.change_amount,
+            paymentMethod: offlineSale.payment_method,
+            isOffline: true,
+          };
+
+          setLastSaleReceipt(receiptData);
+          setCart([]);
+          setSelectedCustomer(null);
+          setIsPaymentDialogOpen(false);
+          setAmountReceived("");
+          setSelectedPaymentMethod("cash");
+          setIsReceiptOpen(true);
+        }
+        
+        setProcessingPayment(false);
+        return;
+      }
+
+      // Online: use the atomic database function
       const itemsData = cart.map(item => ({
         product_id: item.product.id,
         product_name: item.product.name,
@@ -324,11 +426,6 @@ export default function POSPage() {
         discount: item.discount
       }));
 
-      // Call atomic database function that handles:
-      // - Server-side price/tax calculation from database
-      // - Stock validation with row locking
-      // - Sale number generation (no race conditions)
-      // - All inserts/updates in single transaction
       const { data: result, error: rpcError } = await supabase.rpc('process_pos_sale', {
         p_customer_id: selectedCustomer?.id || null,
         p_customer_name: selectedCustomer?.name || null,
@@ -339,7 +436,6 @@ export default function POSPage() {
       });
 
       if (rpcError) {
-        // Handle specific error messages
         if (rpcError.message.includes('Insufficient stock')) {
           toast({
             title: "Insufficient Stock",
@@ -363,7 +459,6 @@ export default function POSPage() {
       const saleNumber = saleData.sale_number;
       const serverChangeAmount = Number(saleData.change_amount) || 0;
 
-      // Prepare receipt data
       const receiptData = {
         saleNumber,
         date: new Date(),
@@ -397,17 +492,12 @@ export default function POSPage() {
         description: `Sale ${saleNumber} processed successfully`,
       });
 
-      // Reset cart but keep receipt available
       setCart([]);
       setSelectedCustomer(null);
       setIsPaymentDialogOpen(false);
       setAmountReceived("");
       setSelectedPaymentMethod("cash");
-      
-      // Show receipt dialog
       setIsReceiptOpen(true);
-
-      // Refresh products to get updated stock
       loadData();
     } catch (error: any) {
       console.error("Error processing payment:", error);
@@ -427,6 +517,45 @@ export default function POSPage() {
         {/* Products Section */}
         <div className="flex-1 flex flex-col min-h-0">
           <div className="space-y-4 mb-4">
+            {/* Offline/Online Status Banner */}
+            {!online && (
+              <div className="flex items-center justify-between gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <WifiOff className="w-4 h-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">
+                    Offline Mode - Sales will sync when reconnected
+                  </span>
+                </div>
+                {pendingSales.length > 0 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <CloudOff className="w-3 h-3" />
+                    {pendingSales.length} pending
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Pending sales indicator when online */}
+            {online && pendingSales.length > 0 && (
+              <div className="flex items-center justify-between gap-2 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CloudOff className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">
+                    {pendingSales.length} offline sale{pendingSales.length > 1 ? 's' : ''} pending sync
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={syncPendingSales}
+                  disabled={syncing}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Now'}
+                </Button>
+              </div>
+            )}
+
             {/* Branch indicator */}
             {currentBranch && (
               <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">

@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { format } from "date-fns";
-import { Printer, X, Download } from "lucide-react";
+import { Printer, X, Download, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 interface ReceiptItem {
   name: string;
@@ -31,6 +32,7 @@ interface ReceiptData {
   amountPaid: number;
   changeAmount: number;
   paymentMethod: string;
+  isOffline?: boolean;
 }
 
 interface ReceiptDialogProps {
@@ -166,6 +168,12 @@ export function ReceiptDialog({ isOpen, onClose, receipt }: ReceiptDialogProps) 
           <DialogTitle className="flex items-center gap-2">
             <Printer className="w-5 h-5" />
             Receipt
+            {receipt.isOffline && (
+              <Badge variant="secondary" className="gap-1">
+                <WifiOff className="w-3 h-3" />
+                Offline Sale
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -270,6 +278,11 @@ export function ReceiptDialog({ isOpen, onClose, receipt }: ReceiptDialogProps) 
 
             {/* Footer */}
             <div className="footer text-center text-xs text-muted-foreground">
+              {receipt.isOffline && (
+                <p className="text-destructive font-medium mb-1">
+                  ⚡ Offline Sale - Will sync when online
+                </p>
+              )}
               <p>Thank you for shopping with us!</p>
               <p className="mt-1">Please keep this receipt for your records.</p>
             </div>
