@@ -312,7 +312,18 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("User authenticated:", user.id);
+    // Require admin or staff role for sending stock alerts (not cashier)
+    const userRoles = roles.map(r => r.role);
+    const hasStockAlertPermission = userRoles.includes('admin') || userRoles.includes('staff');
+    if (!hasStockAlertPermission) {
+      console.error("User does not have permission to send stock alerts:", userRoles);
+      return new Response(
+        JSON.stringify({ error: "Insufficient permissions - admin or staff role required" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("User authenticated:", user.id, "with roles:", userRoles);
 
     const data: StockAlertRequest = await req.json();
     console.log("Sending stock alert to:", data.recipientEmail, "for branch:", data.branchName);

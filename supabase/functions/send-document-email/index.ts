@@ -302,11 +302,44 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("User authenticated:", user.id, "with roles:", roles.map(r => r.role));
+    const userRoles = roles.map(r => r.role);
+    console.log("User authenticated:", user.id, "with roles:", userRoles);
 
     // Parse and validate request body
     const data: DocumentEmailRequest = await req.json();
     console.log("Received request:", { type: data.type, documentNumber: data.documentNumber, customerEmail: data.customerEmail });
+
+    // Verify document exists and user has access to it via RLS
+    const tableName = data.type === 'invoice' ? 'invoices' : 'quotations';
+    const numberField = data.type === 'invoice' ? 'invoice_number' : 'quotation_number';
+    
+    const { data: document, error: docError } = await supabase
+      .from(tableName)
+      .select('id, customer_email')
+      .eq(numberField, data.documentNumber)
+      .single();
+
+    if (docError || !document) {
+      console.error("Document not found or user lacks access:", docError?.message);
+      return new Response(
+        JSON.stringify({ error: "Document not found or access denied" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate that the email matches the customer's email on the document (if present)
+    // This prevents sending documents to arbitrary email addresses
+    if (document.customer_email && data.customerEmail !== document.customer_email) {
+      // Allow admin to override email address
+      if (!userRoles.includes('admin')) {
+        console.error("Email mismatch - non-admin attempting to send to different address");
+        return new Response(
+          JSON.stringify({ error: "Email address must match customer's registered email" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      console.log("Admin override: sending to different email than registered");
+    }
 
     // Validate required fields
     if (!data.customerEmail) {

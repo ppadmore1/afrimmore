@@ -290,11 +290,42 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("User authenticated:", user.id, "with roles:", roles.map(r => r.role));
+    const userRoles = roles.map(r => r.role);
+    console.log("User authenticated:", user.id, "with roles:", userRoles);
 
     // Parse and validate request body
     const data: PaymentReminderRequest = await req.json();
     console.log("Received reminder request for customer:", data.customerName, "email:", data.customerEmail);
+
+    // Verify customer exists and user has access via RLS
+    if (data.customerId) {
+      const { data: customer, error: custError } = await supabase
+        .from('customers')
+        .select('id, email')
+        .eq('id', data.customerId)
+        .single();
+
+      if (custError || !customer) {
+        console.error("Customer not found or user lacks access:", custError?.message);
+        return new Response(
+          JSON.stringify({ error: "Customer not found or access denied" }),
+          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Validate that the email matches the customer's registered email
+      if (customer.email && data.customerEmail !== customer.email) {
+        // Allow admin to override email address
+        if (!userRoles.includes('admin')) {
+          console.error("Email mismatch - non-admin attempting to send to different address");
+          return new Response(
+            JSON.stringify({ error: "Email address must match customer's registered email" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+        console.log("Admin override: sending to different email than registered");
+      }
+    }
 
     // Validate required fields
     if (!data.customerEmail) {
