@@ -20,9 +20,11 @@ import {
   WifiOff,
   CloudOff,
   RefreshCw,
+  History,
 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import { PendingSalesView } from "@/components/pos/PendingSalesView";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
@@ -87,7 +96,10 @@ export default function POSPage() {
     cacheForOffline,
     processOfflineSale,
     syncPendingSales,
+    loadCachedData,
   } = useOfflinePOS(currentBranch?.id || null);
+
+  const [isPendingSalesOpen, setIsPendingSalesOpen] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -527,10 +539,15 @@ export default function POSPage() {
                   </span>
                 </div>
                 {pendingSales.length > 0 && (
-                  <Badge variant="destructive" className="gap-1">
-                    <CloudOff className="w-3 h-3" />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setIsPendingSalesOpen(true)}
+                    className="gap-1"
+                  >
+                    <History className="w-3 h-3" />
                     {pendingSales.length} pending
-                  </Badge>
+                  </Button>
                 )}
               </div>
             )}
@@ -544,15 +561,25 @@ export default function POSPage() {
                     {pendingSales.length} offline sale{pendingSales.length > 1 ? 's' : ''} pending sync
                   </span>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={syncPendingSales}
-                  disabled={syncing}
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Now'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsPendingSalesOpen(true)}
+                  >
+                    <History className="w-4 h-4 mr-1" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={syncPendingSales}
+                    disabled={syncing}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -956,6 +983,22 @@ export default function POSPage() {
           onClose={() => setIsReceiptOpen(false)}
           receipt={lastSaleReceipt}
         />
+
+        {/* Pending Sales Sheet */}
+        <Sheet open={isPendingSalesOpen} onOpenChange={setIsPendingSalesOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+            <SheetHeader className="mb-4">
+              <SheetTitle>Pending Offline Sales</SheetTitle>
+            </SheetHeader>
+            <PendingSalesView
+              pendingSales={pendingSales}
+              online={online}
+              syncing={syncing}
+              onSync={syncPendingSales}
+              onRefresh={loadCachedData}
+            />
+          </SheetContent>
+        </Sheet>
       </div>
     </AppLayout>
   );
