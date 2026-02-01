@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BranchProvider } from "@/contexts/BranchContext";
+import { OfflineSyncProvider } from "@/contexts/OfflineSyncContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import AuthPage from "./pages/AuthPage";
@@ -44,54 +45,56 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <BranchProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
-              <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
-              <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
-              <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
-              <Route path="/products/:id/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
-              <Route path="/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
-              <Route path="/invoices/new" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
-              <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
-              <Route path="/invoices/:id/edit" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
-              <Route path="/quotations" element={<ProtectedRoute><QuotationsPage /></ProtectedRoute>} />
-              <Route path="/quotations/new" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
-              <Route path="/quotations/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
-              <Route path="/quotations/:id/edit" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
-              <Route path="/delivery-notes" element={<ProtectedRoute><DeliveryNotesPage /></ProtectedRoute>} />
-              <Route path="/delivery-notes/new" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
-              <Route path="/delivery-notes/:id" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
-              <Route path="/delivery-notes/:id/edit" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
-              <Route path="/receipts" element={<ProtectedRoute><ReceiptsPage /></ProtectedRoute>} />
-              <Route path="/receipts/new" element={<ProtectedRoute><ReceiptForm /></ProtectedRoute>} />
-              <Route path="/receipts/:id" element={<ProtectedRoute><ReceiptForm /></ProtectedRoute>} />
-              <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
-              <Route path="/customers/new" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
-              <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
-              <Route path="/customers/:id/edit" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
-              <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-              <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-              <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
-              <Route path="/branch-stock" element={<ProtectedRoute><BranchStockComparisonPage /></ProtectedRoute>} />
-              <Route path="/reorder" element={<ProtectedRoute><ReorderSuggestionsPage /></ProtectedRoute>} />
-              <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
-              <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrdersPage /></ProtectedRoute>} />
-              <Route path="/purchase-orders/new" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
-              <Route path="/purchase-orders/:id" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
-              <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/install" element={<ProtectedRoute><InstallPage /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <OfflineSyncProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
+                <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+                <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+                <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
+                <Route path="/products/:id/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
+                <Route path="/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
+                <Route path="/invoices/new" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
+                <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+                <Route path="/invoices/:id/edit" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
+                <Route path="/quotations" element={<ProtectedRoute><QuotationsPage /></ProtectedRoute>} />
+                <Route path="/quotations/new" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+                <Route path="/quotations/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+                <Route path="/quotations/:id/edit" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+                <Route path="/delivery-notes" element={<ProtectedRoute><DeliveryNotesPage /></ProtectedRoute>} />
+                <Route path="/delivery-notes/new" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
+                <Route path="/delivery-notes/:id" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
+                <Route path="/delivery-notes/:id/edit" element={<ProtectedRoute><DeliveryNoteForm /></ProtectedRoute>} />
+                <Route path="/receipts" element={<ProtectedRoute><ReceiptsPage /></ProtectedRoute>} />
+                <Route path="/receipts/new" element={<ProtectedRoute><ReceiptForm /></ProtectedRoute>} />
+                <Route path="/receipts/:id" element={<ProtectedRoute><ReceiptForm /></ProtectedRoute>} />
+                <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
+                <Route path="/customers/new" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
+                <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+                <Route path="/customers/:id/edit" element={<ProtectedRoute><CustomerForm /></ProtectedRoute>} />
+                <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+                <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+                <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
+                <Route path="/branch-stock" element={<ProtectedRoute><BranchStockComparisonPage /></ProtectedRoute>} />
+                <Route path="/reorder" element={<ProtectedRoute><ReorderSuggestionsPage /></ProtectedRoute>} />
+                <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
+                <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrdersPage /></ProtectedRoute>} />
+                <Route path="/purchase-orders/new" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
+                <Route path="/purchase-orders/:id" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
+                <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/install" element={<ProtectedRoute><InstallPage /></ProtectedRoute>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </OfflineSyncProvider>
       </BranchProvider>
     </AuthProvider>
   </QueryClientProvider>

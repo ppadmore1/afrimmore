@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Smartphone, Monitor, CheckCircle2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Download, Smartphone, Monitor, CheckCircle2, Wifi, WifiOff, RefreshCw, CloudOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useOfflineSyncContext } from '@/contexts/OfflineSyncContext';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -14,8 +16,8 @@ interface BeforeInstallPromptEvent extends Event {
 export default function InstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isIOS, setIsIOS] = useState(false);
+  const { online, syncing, pendingCount, sync } = useOfflineSyncContext();
 
   useEffect(() => {
     // Check if already installed
@@ -39,20 +41,12 @@ export default function InstallPage() {
       setDeferredPrompt(null);
     };
 
-    // Listen for online/offline
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -87,15 +81,15 @@ export default function InstallPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                {isOnline ? (
-                  <Wifi className="w-8 h-8 text-green-500" />
+                {online ? (
+                  <Wifi className="w-8 h-8 text-primary" />
                 ) : (
-                  <WifiOff className="w-8 h-8 text-orange-500" />
+                  <WifiOff className="w-8 h-8 text-destructive" />
                 )}
                 <div>
-                  <p className="font-medium">{isOnline ? 'Online' : 'Offline'}</p>
+                  <p className="font-medium">{online ? 'Online' : 'Offline'}</p>
                   <p className="text-sm text-muted-foreground">
-                    {isOnline ? 'Connected to internet' : 'Working offline'}
+                    {online ? 'Connected to internet' : 'Working offline'}
                   </p>
                 </div>
               </div>
@@ -106,7 +100,7 @@ export default function InstallPage() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 {isInstalled ? (
-                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
                 ) : (
                   <Download className="w-8 h-8 text-primary" />
                 )}
@@ -120,6 +114,26 @@ export default function InstallPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Pending Changes */}
+        {pendingCount > 0 && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CloudOff className="w-6 h-6 text-destructive" />
+                  <div>
+                    <p className="font-medium">Pending Changes</p>
+                    <p className="text-sm text-muted-foreground">
+                      {pendingCount} change{pendingCount > 1 ? 's' : ''} waiting to sync
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="destructive">{pendingCount}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Install Instructions */}
         {!isInstalled && (
@@ -201,7 +215,7 @@ export default function InstallPage() {
                 'Automatic sync when back online',
               ].map((feature, index) => (
                 <li key={index} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
                   <span>{feature}</span>
                 </li>
               ))}
@@ -214,19 +228,24 @@ export default function InstallPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <RefreshCw className={`w-5 h-5 ${isOnline ? 'text-green-500' : 'text-muted-foreground'}`} />
+                <RefreshCw className={`w-5 h-5 ${online ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div>
                   <p className="font-medium">Auto-Sync</p>
                   <p className="text-sm text-muted-foreground">
-                    {isOnline 
+                    {online 
                       ? 'Data syncs automatically when connected' 
                       : 'Changes will sync when you reconnect'}
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" disabled={!isOnline}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Sync Now
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={!online || syncing}
+                onClick={sync}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
               </Button>
             </div>
           </CardContent>
