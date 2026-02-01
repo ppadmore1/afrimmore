@@ -41,6 +41,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useLowStockCheck } from "@/components/LowStockAlert";
 import { BranchSelector } from "@/components/BranchSelector";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { toast } from "@/hooks/use-toast";
 
 const navItems = [
@@ -121,20 +122,25 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
           </Link>
           
-          {/* Notification Bell */}
-          {hasAlerts && (
-            <Link to="/inventory" className="relative">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/70 hover:text-sidebar-foreground">
-                <Bell className="h-5 w-5" />
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                >
-                  {totalAlertCount > 9 ? '9+' : totalAlertCount}
-                </Badge>
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Offline Status Indicator */}
+            <OfflineIndicator />
+            
+            {/* Notification Bell */}
+            {hasAlerts && (
+              <Link to="/inventory" className="relative">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                  <Bell className="h-5 w-5" />
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                  >
+                    {totalAlertCount > 9 ? '9+' : totalAlertCount}
+                  </Badge>
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Branch Selector */}
@@ -232,6 +238,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             <span className="font-bold text-foreground">POSFlow</span>
           </Link>
           <div className="flex items-center gap-1">
+            {/* Offline Status */}
+            <OfflineIndicator />
             {/* Mobile Branch Selector */}
             <BranchSelector compact />
             {/* Mobile Notification Bell */}
