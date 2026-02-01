@@ -246,6 +246,9 @@ export async function syncPendingOperations(): Promise<{ success: number; failed
         case 'pos_sales':
           await syncPOSSaleOperation(op);
           break;
+        case 'pos_sales_rpc':
+          // Skip - handled by useOfflinePOS hook
+          continue;
         case 'customers':
           await syncCustomerOperation(op);
           break;
