@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   isOnline, 
   syncFromServer, 
@@ -11,6 +11,8 @@ export function useOfflineSync() {
   const [online, setOnline] = useState(isOnline());
   const [syncing, setSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const initialSyncDone = useRef(false);
+  const syncingRef = useRef(false);
 
   // Update pending count
   const updatePendingCount = useCallback(async () => {
@@ -18,10 +20,11 @@ export function useOfflineSync() {
     setPendingCount(count);
   }, []);
 
-  // Sync data
+  // Sync data - use ref to prevent re-render loops
   const sync = useCallback(async () => {
-    if (!isOnline() || syncing) return;
+    if (!isOnline() || syncingRef.current) return;
 
+    syncingRef.current = true;
     setSyncing(true);
     try {
       // First, push pending changes to server
@@ -46,11 +49,12 @@ export function useOfflineSync() {
     } catch (error) {
       console.error('Sync error:', error);
     } finally {
+      syncingRef.current = false;
       setSyncing(false);
     }
-  }, [syncing, updatePendingCount]);
+  }, [updatePendingCount]);
 
-  // Handle online/offline events
+  // Handle online/offline events - run once on mount
   useEffect(() => {
     const handleOnline = () => {
       setOnline(true);
@@ -73,11 +77,14 @@ export function useOfflineSync() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial sync on mount
-    if (isOnline()) {
-      sync();
+    // Initial sync on mount - only once
+    if (!initialSyncDone.current) {
+      initialSyncDone.current = true;
+      if (isOnline()) {
+        sync();
+      }
+      updatePendingCount();
     }
-    updatePendingCount();
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -85,13 +92,13 @@ export function useOfflineSync() {
     };
   }, [sync, updatePendingCount]);
 
-  // Periodic sync when online
+  // Periodic sync when online - every 5 minutes
   useEffect(() => {
     if (!online) return;
 
     const interval = setInterval(() => {
       updatePendingCount();
-      // Auto-sync every 5 minutes
+      // Auto-sync every 5 minutes if there are pending operations
       if (pendingCount > 0) {
         sync();
       }
