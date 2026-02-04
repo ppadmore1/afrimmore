@@ -630,6 +630,21 @@ export default function POSPage() {
                   className="pl-10"
                 />
               </div>
+
+              {/* Always Visible Pending Sales Button */}
+              <Button
+                variant={pendingSales.length > 0 ? "default" : "outline"}
+                onClick={() => setIsPendingSalesOpen(true)}
+                className="gap-2 whitespace-nowrap"
+              >
+                <History className="w-4 h-4" />
+                Pending Sales
+                {pendingSales.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {pendingSales.length}
+                  </Badge>
+                )}
+              </Button>
             </div>
           </div>
 
