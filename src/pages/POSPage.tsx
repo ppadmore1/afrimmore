@@ -22,6 +22,7 @@ import {
   RefreshCw,
   History,
 } from "lucide-react";
+ import { Tag, Loader2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { PendingSalesView } from "@/components/pos/PendingSalesView";
@@ -58,6 +59,7 @@ import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
 import { useOfflinePOS } from "@/hooks/useOfflinePOS";
+ import { useDiscountCode } from "@/hooks/useDiscountCode";
 
 type Product = Tables<"products"> & {
   branch_stock?: number;
@@ -135,6 +137,25 @@ export default function POSPage() {
     paymentMethod: string;
     isOffline?: boolean;
   } | null>(null);
+ 
+   // Discount code hook - calculated after cart items are defined
+   const itemSubtotal = cart.reduce((sum, item) => {
+     const itemTotal = item.product.unit_price * item.quantity;
+     const discountAmount = (itemTotal * item.discount) / 100;
+     return sum + (itemTotal - discountAmount);
+   }, 0);
+ 
+   const {
+     discountCodeInput,
+     setDiscountCodeInput,
+     appliedDiscount,
+     validating: validatingCode,
+     applyCode: applyDiscountCode,
+     removeCode: removeDiscountCode,
+     reset: resetDiscount,
+     recordUsage: recordDiscountUsage,
+     couponDiscount,
+   } = useDiscountCode(itemSubtotal, selectedCustomer?.id || null);
 
   useEffect(() => {
     loadData();
@@ -313,6 +334,7 @@ export default function POSPage() {
   const clearCart = () => {
     setCart([]);
     setSelectedCustomer(null);
+     resetDiscount();
   };
 
   const handleBarcodeSubmit = (e: React.FormEvent) => {
@@ -342,11 +364,7 @@ export default function POSPage() {
       });
     }
   };
-  const subtotal = cart.reduce((sum, item) => {
-    const itemTotal = item.product.unit_price * item.quantity;
-    const discountAmount = (itemTotal * item.discount) / 100;
-    return sum + (itemTotal - discountAmount);
-  }, 0);
+   const subtotal = itemSubtotal;
 
   const taxTotal = cart.reduce((sum, item) => {
     const itemTotal = item.product.unit_price * item.quantity;
@@ -360,7 +378,7 @@ export default function POSPage() {
     return sum + (itemTotal * item.discount) / 100;
   }, 0);
 
-  const total = subtotal + taxTotal;
+   const total = Math.max(0, subtotal + taxTotal - couponDiscount);
   const changeAmount = parseFloat(amountReceived) - total;
 
   // Sale number is now generated atomically in the database function (or offline)
@@ -470,6 +488,11 @@ export default function POSPage() {
       const saleData = result[0];
       const saleNumber = saleData.sale_number;
       const serverChangeAmount = Number(saleData.change_amount) || 0;
+ 
+       // Record discount code usage if applied
+       if (appliedDiscount) {
+         await recordDiscountUsage(saleData.sale_id);
+       }
 
       const receiptData = {
         saleNumber,
@@ -490,7 +513,7 @@ export default function POSPage() {
         }),
         subtotal,
         taxTotal,
-        discountTotal,
+         discountTotal: discountTotal + couponDiscount,
         total,
         amountPaid: parseFloat(amountReceived) || total,
         changeAmount: serverChangeAmount,
@@ -509,6 +532,7 @@ export default function POSPage() {
       setIsPaymentDialogOpen(false);
       setAmountReceived("");
       setSelectedPaymentMethod("cash");
+       resetDiscount();
       setIsReceiptOpen(true);
       loadData();
     } catch (error: any) {
@@ -845,7 +869,55 @@ export default function POSPage() {
 
           <Separator />
 
-          {/* Totals */}
+           {/* Discount Code Input */}
+           <div className="p-4 pb-0">
+             {appliedDiscount ? (
+               <div className="flex items-center justify-between p-3 rounded-lg bg-success/10 border border-success/30">
+                 <div className="flex items-center gap-2">
+                   <Tag className="w-4 h-4 text-success" />
+                   <div>
+                     <p className="text-sm font-medium text-success">{appliedDiscount.code.code}</p>
+                     <p className="text-xs text-muted-foreground">{appliedDiscount.code.name}</p>
+                   </div>
+                 </div>
+                 <Button
+                   variant="ghost"
+                   size="sm"
+                   onClick={removeDiscountCode}
+                   className="text-destructive hover:text-destructive"
+                 >
+                   <X className="w-4 h-4" />
+                 </Button>
+               </div>
+             ) : (
+               <div className="flex gap-2">
+                 <div className="relative flex-1">
+                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                   <Input
+                     placeholder="Discount code..."
+                     value={discountCodeInput}
+                     onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                     onKeyDown={(e) => e.key === "Enter" && applyDiscountCode()}
+                     className="pl-10 uppercase"
+                     disabled={cart.length === 0}
+                   />
+                 </div>
+                 <Button
+                   variant="secondary"
+                   onClick={applyDiscountCode}
+                   disabled={!discountCodeInput.trim() || validatingCode || cart.length === 0}
+                 >
+                   {validatingCode ? (
+                     <Loader2 className="w-4 h-4 animate-spin" />
+                   ) : (
+                     "Apply"
+                   )}
+                 </Button>
+               </div>
+             )}
+           </div>
+ 
+           {/* Totals */}
           <div className="p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
@@ -853,10 +925,19 @@ export default function POSPage() {
             </div>
             {discountTotal > 0 && (
               <div className="flex justify-between text-sm text-success">
-                <span>Discount</span>
+                 <span>Item Discounts</span>
                 <span className="font-mono">-${discountTotal.toFixed(2)}</span>
               </div>
             )}
+             {couponDiscount > 0 && (
+               <div className="flex justify-between text-sm text-success">
+                 <span className="flex items-center gap-1">
+                   <Tag className="w-3 h-3" />
+                   {appliedDiscount?.code.code}
+                 </span>
+                 <span className="font-mono">-${couponDiscount.toFixed(2)}</span>
+               </div>
+             )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Tax</span>
               <span className="font-mono">${taxTotal.toFixed(2)}</span>
