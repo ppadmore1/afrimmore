@@ -27,6 +27,7 @@ import {
  History,
  Percent,
  FormInput,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,7 @@ const navItems = [
  { icon: Percent, label: "Discount Codes", path: "/discounts", adminOnly: true },
  { icon: History, label: "Activity Logs", path: "/activity-logs", adminOnly: true },
  { icon: FormInput, label: "Custom Fields", path: "/custom-fields", adminOnly: true },
+  { icon: FileBarChart, label: "Payroll Reports", path: "/payroll-reports", adminOnly: true },
 ];
 
 interface AppLayoutProps {

@@ -42,6 +42,7 @@ import ActivityLogsPage from "./pages/ActivityLogsPage";
 import DiscountCodesPage from "./pages/DiscountCodesPage";
 import TimeTrackingPage from "./pages/TimeTrackingPage";
 import CustomFieldsPage from "./pages/CustomFieldsPage";
+ import PayrollReportsPage from "./pages/PayrollReportsPage";
 
 const queryClient = new QueryClient();
 
@@ -98,6 +99,7 @@ const App = () => (
                <Route path="/discounts" element={<ProtectedRoute><DiscountCodesPage /></ProtectedRoute>} />
                <Route path="/activity-logs" element={<ProtectedRoute><ActivityLogsPage /></ProtectedRoute>} />
                <Route path="/custom-fields" element={<ProtectedRoute><CustomFieldsPage /></ProtectedRoute>} />
+                <Route path="/payroll-reports" element={<ProtectedRoute><PayrollReportsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
