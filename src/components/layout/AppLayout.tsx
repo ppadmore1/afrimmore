@@ -23,6 +23,10 @@ import {
   ClipboardList,
   Boxes,
   Tag,
+ Clock,
+ History,
+ Percent,
+ FormInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +68,10 @@ const navItems = [
   { icon: BarChart3, label: "Admin Dashboard", path: "/admin", adminOnly: true },
   { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
+ { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
+ { icon: Percent, label: "Discount Codes", path: "/discounts", adminOnly: true },
+ { icon: History, label: "Activity Logs", path: "/activity-logs", adminOnly: true },
+ { icon: FormInput, label: "Custom Fields", path: "/custom-fields", adminOnly: true },
 ];
 
 interface AppLayoutProps {

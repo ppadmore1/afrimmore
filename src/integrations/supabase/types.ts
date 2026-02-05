@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          branch_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          new_values: Json | null
+          old_values: Json | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          branch_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          branch_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -184,6 +240,89 @@ export type Database = {
           },
         ]
       }
+      custom_field_definitions: {
+        Row: {
+          created_at: string
+          default_value: string | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_type: Database["public"]["Enums"]["field_type"]
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          options: Json | null
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_value?: string | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_type?: Database["public"]["Enums"]["field_type"]
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_value?: string | null
+          entity_type?: string
+          field_label?: string
+          field_name?: string
+          field_type?: Database["public"]["Enums"]["field_type"]
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_field_values: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          field_definition_id: string
+          id: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          field_definition_id: string
+          id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          field_definition_id?: string
+          id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_values_field_definition_id_fkey"
+            columns: ["field_definition_id"]
+            isOneToOne: false
+            referencedRelation: "custom_field_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -324,6 +463,219 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discount_code_usage: {
+        Row: {
+          customer_id: string | null
+          discount_amount: number
+          discount_code_id: string
+          id: string
+          invoice_id: string | null
+          pos_sale_id: string | null
+          used_at: string
+        }
+        Insert: {
+          customer_id?: string | null
+          discount_amount: number
+          discount_code_id: string
+          id?: string
+          invoice_id?: string | null
+          pos_sale_id?: string | null
+          used_at?: string
+        }
+        Update: {
+          customer_id?: string | null
+          discount_amount?: number
+          discount_code_id?: string
+          id?: string
+          invoice_id?: string | null
+          pos_sale_id?: string | null
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_code_usage_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_code_usage_discount_code_id_fkey"
+            columns: ["discount_code_id"]
+            isOneToOne: false
+            referencedRelation: "discount_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_code_usage_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_code_usage_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discount_codes: {
+        Row: {
+          applicable_branches: string[] | null
+          applicable_categories: string[] | null
+          applicable_products: string[] | null
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          id: string
+          max_discount_amount: number | null
+          min_purchase_amount: number | null
+          name: string
+          per_customer_limit: number | null
+          status: Database["public"]["Enums"]["promotion_status"]
+          updated_at: string
+          usage_count: number | null
+          usage_limit: number | null
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          applicable_branches?: string[] | null
+          applicable_categories?: string[] | null
+          applicable_products?: string[] | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value?: number
+          id?: string
+          max_discount_amount?: number | null
+          min_purchase_amount?: number | null
+          name: string
+          per_customer_limit?: number | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          updated_at?: string
+          usage_count?: number | null
+          usage_limit?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          applicable_branches?: string[] | null
+          applicable_categories?: string[] | null
+          applicable_products?: string[] | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value?: number
+          id?: string
+          max_discount_amount?: number | null
+          min_purchase_amount?: number | null
+          name?: string
+          per_customer_limit?: number | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          updated_at?: string
+          usage_count?: number | null
+          usage_limit?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      employee_breaks: {
+        Row: {
+          break_end: string | null
+          break_start: string
+          break_type: string | null
+          created_at: string
+          id: string
+          time_entry_id: string
+        }
+        Insert: {
+          break_end?: string | null
+          break_start: string
+          break_type?: string | null
+          created_at?: string
+          id?: string
+          time_entry_id: string
+        }
+        Update: {
+          break_end?: string | null
+          break_start?: string
+          break_type?: string | null
+          created_at?: string
+          id?: string
+          time_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_breaks_time_entry_id_fkey"
+            columns: ["time_entry_id"]
+            isOneToOne: false
+            referencedRelation: "employee_time_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_time_entries: {
+        Row: {
+          branch_id: string | null
+          break_minutes: number | null
+          clock_in: string
+          clock_out: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["clock_status"]
+          total_hours: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_id?: string | null
+          break_minutes?: number | null
+          clock_in: string
+          clock_out?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["clock_status"]
+          total_hours?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string | null
+          break_minutes?: number | null
+          clock_in?: string
+          clock_out?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["clock_status"]
+          total_hours?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_entries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
@@ -1482,6 +1834,18 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
+      log_activity: {
+        Args: {
+          p_action: string
+          p_entity_id?: string
+          p_entity_name?: string
+          p_entity_type: string
+          p_metadata?: Json
+          p_new_values?: Json
+          p_old_values?: Json
+        }
+        Returns: string
+      }
       process_pos_sale: {
         Args: {
           p_amount_paid: number
@@ -1500,6 +1864,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff" | "cashier"
+      clock_status: "clocked_in" | "clocked_out" | "on_break"
+      discount_type: "percentage" | "fixed_amount"
       document_status:
         | "draft"
         | "pending"
@@ -1507,12 +1873,21 @@ export type Database = {
         | "paid"
         | "cancelled"
         | "delivered"
+      field_type:
+        | "text"
+        | "number"
+        | "date"
+        | "boolean"
+        | "select"
+        | "multiselect"
+        | "textarea"
       payment_method:
         | "cash"
         | "card"
         | "mobile_money"
         | "bank_transfer"
         | "other"
+      promotion_status: "active" | "inactive" | "expired" | "scheduled"
       purchase_order_status:
         | "draft"
         | "submitted"
@@ -1648,6 +2023,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff", "cashier"],
+      clock_status: ["clocked_in", "clocked_out", "on_break"],
+      discount_type: ["percentage", "fixed_amount"],
       document_status: [
         "draft",
         "pending",
@@ -1656,6 +2033,15 @@ export const Constants = {
         "cancelled",
         "delivered",
       ],
+      field_type: [
+        "text",
+        "number",
+        "date",
+        "boolean",
+        "select",
+        "multiselect",
+        "textarea",
+      ],
       payment_method: [
         "cash",
         "card",
@@ -1663,6 +2049,7 @@ export const Constants = {
         "bank_transfer",
         "other",
       ],
+      promotion_status: ["active", "inactive", "expired", "scheduled"],
       purchase_order_status: [
         "draft",
         "submitted",

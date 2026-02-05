@@ -38,6 +38,10 @@ import ReceiptForm from "./pages/ReceiptForm";
 import CompanySettingsPage from "./pages/CompanySettingsPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import InstallPage from "./pages/InstallPage";
+import ActivityLogsPage from "./pages/ActivityLogsPage";
+import DiscountCodesPage from "./pages/DiscountCodesPage";
+import TimeTrackingPage from "./pages/TimeTrackingPage";
+import CustomFieldsPage from "./pages/CustomFieldsPage";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +94,10 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/install" element={<ProtectedRoute><InstallPage /></ProtectedRoute>} />
+               <Route path="/time-tracking" element={<ProtectedRoute><TimeTrackingPage /></ProtectedRoute>} />
+               <Route path="/discounts" element={<ProtectedRoute><DiscountCodesPage /></ProtectedRoute>} />
+               <Route path="/activity-logs" element={<ProtectedRoute><ActivityLogsPage /></ProtectedRoute>} />
+               <Route path="/custom-fields" element={<ProtectedRoute><CustomFieldsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
