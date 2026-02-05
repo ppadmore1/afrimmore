@@ -11,6 +11,8 @@ import {
   Barcode,
   Wand2,
   Loader2,
+   Download,
+   Upload,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -26,12 +28,16 @@ import {
 import { getProducts, deleteProduct, updateProduct, Product } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 import { BarcodeDialog, generateBarcodeValue } from "@/components/BarcodeGenerator";
+ import { ImportDialog } from "@/components/ImportDialog";
+ import { parseCSV, generateCSV, downloadCSV } from "@/lib/csv";
+ import { supabase } from "@/integrations/supabase/client";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingBarcodes, setGeneratingBarcodes] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+   const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -59,6 +65,76 @@ export default function ProductsPage() {
       }
     }
   }
+ 
+   // Export products to CSV
+   const handleExport = () => {
+     const csvContent = generateCSV(products, [
+       { key: "name", header: "Name" },
+       { key: "description", header: "Description" },
+       { key: "sku", header: "SKU" },
+       { key: "barcode", header: "Barcode" },
+       { key: "unit_price", header: "Unit Price" },
+       { key: "cost_price", header: "Cost Price" },
+       { key: "stock_quantity", header: "Stock Quantity" },
+       { key: "low_stock_threshold", header: "Low Stock Threshold" },
+       { key: "unit", header: "Unit" },
+       { key: "tax_rate", header: "Tax Rate" },
+     ]);
+     downloadCSV(csvContent, `products_export_${new Date().toISOString().split("T")[0]}.csv`);
+     toast({ title: "Exported", description: `${products.length} products exported to CSV` });
+   };
+ 
+   // Parse CSV for import
+   const parseProductsCSV = (csvText: string) => {
+     return parseCSV<Product>(csvText, {
+       name: "name",
+       description: "description",
+       sku: "sku",
+       barcode: "barcode",
+       "unit price": "unit_price",
+       "cost price": "cost_price",
+       "stock quantity": "stock_quantity",
+       "low stock threshold": "low_stock_threshold",
+       unit: "unit",
+       "tax rate": "tax_rate",
+     });
+   };
+ 
+   // Import products
+   const handleImport = async (data: Partial<Product>[]): Promise<{ success: number; failed: number }> => {
+     let success = 0;
+     let failed = 0;
+ 
+     for (const row of data) {
+       if (!row.name) {
+         failed++;
+         continue;
+       }
+ 
+       const productData = {
+         name: row.name,
+         description: row.description || null,
+         sku: row.sku || null,
+         barcode: row.barcode || null,
+         unit_price: parseFloat(String(row.unit_price)) || 0,
+         cost_price: parseFloat(String(row.cost_price)) || 0,
+         stock_quantity: parseInt(String(row.stock_quantity)) || 0,
+         low_stock_threshold: parseInt(String(row.low_stock_threshold)) || 10,
+         unit: row.unit || "pcs",
+         tax_rate: parseFloat(String(row.tax_rate)) || 0,
+       };
+ 
+       const { error } = await supabase.from("products").insert(productData);
+       if (error) {
+         console.error("Import error:", error);
+         failed++;
+       } else {
+         success++;
+       }
+     }
+ 
+     return { success, failed };
+   };
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,6 +190,14 @@ export default function ProductsPage() {
             <p className="text-muted-foreground mt-1">Manage your product catalog</p>
           </div>
           <div className="flex gap-2">
+             <Button variant="outline" onClick={handleExport} disabled={products.length === 0}>
+               <Download className="w-4 h-4 mr-2" />
+               Export
+             </Button>
+             <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+               <Upload className="w-4 h-4 mr-2" />
+               Import
+             </Button>
             {productsWithoutBarcode.length > 0 && (
               <Button 
                 variant="outline" 
@@ -261,6 +345,17 @@ export default function ProductsPage() {
           </div>
         )}
       </motion.div>
+ 
+       <ImportDialog<Product>
+         open={isImportOpen}
+         onOpenChange={setIsImportOpen}
+         title="Import Products"
+         description="Upload a CSV file to bulk import products. Required column: Name."
+         templateColumns={["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate"]}
+         parseData={parseProductsCSV}
+         onImport={handleImport}
+         onComplete={loadProducts}
+       />
     </AppLayout>
   );
 }
