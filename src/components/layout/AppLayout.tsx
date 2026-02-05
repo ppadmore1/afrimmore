@@ -222,10 +222,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-               <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </DropdownMenuItem>
                <DropdownMenuItem onClick={() => navigate("/profile")} className="cursor-pointer">
                 <User className="w-4 h-4 mr-2" />
                 Profile
