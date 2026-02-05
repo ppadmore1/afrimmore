@@ -13,6 +13,8 @@ import {
   Eye,
   DollarSign,
   AlertCircle,
+   Download,
+   Upload,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -31,11 +33,18 @@ import {
   type CustomerBalance 
 } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
+ import { ImportDialog } from "@/components/ImportDialog";
+ import { parseCSV, generateCSV, downloadCSV } from "@/lib/csv";
+ import { supabase } from "@/integrations/supabase/client";
+ import { Tables } from "@/integrations/supabase/types";
+ 
+ type Customer = Tables<"customers">;
 
 export default function CustomersPage() {
   const [customerBalances, setCustomerBalances] = useState<CustomerBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+   const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     loadCustomers();
@@ -65,6 +74,71 @@ export default function CustomersPage() {
       }
     }
   }
+ 
+   // Export customers to CSV
+   const handleExport = () => {
+     const customers = customerBalances.map((cb) => cb.customer);
+     const csvContent = generateCSV(customers, [
+       { key: "name", header: "Name" },
+       { key: "email", header: "Email" },
+       { key: "phone", header: "Phone" },
+       { key: "address", header: "Address" },
+       { key: "city", header: "City" },
+       { key: "country", header: "Country" },
+       { key: "tax_id", header: "Tax ID" },
+       { key: "notes", header: "Notes" },
+     ]);
+     downloadCSV(csvContent, `customers_export_${new Date().toISOString().split("T")[0]}.csv`);
+     toast({ title: "Exported", description: `${customers.length} customers exported to CSV` });
+   };
+ 
+   // Parse CSV for import
+   const parseCustomersCSV = (csvText: string) => {
+     return parseCSV<Customer>(csvText, {
+       name: "name",
+       email: "email",
+       phone: "phone",
+       address: "address",
+       city: "city",
+       country: "country",
+       "tax id": "tax_id",
+       notes: "notes",
+     });
+   };
+ 
+   // Import customers
+   const handleImport = async (data: Partial<Customer>[]): Promise<{ success: number; failed: number }> => {
+     let success = 0;
+     let failed = 0;
+ 
+     for (const row of data) {
+       if (!row.name) {
+         failed++;
+         continue;
+       }
+ 
+       const customerData = {
+         name: row.name,
+         email: row.email || null,
+         phone: row.phone || null,
+         address: row.address || null,
+         city: row.city || null,
+         country: row.country || null,
+         tax_id: row.tax_id || null,
+         notes: row.notes || null,
+       };
+ 
+       const { error } = await supabase.from("customers").insert(customerData);
+       if (error) {
+         console.error("Import error:", error);
+         failed++;
+       } else {
+         success++;
+       }
+     }
+ 
+     return { success, failed };
+   };
 
   const filteredCustomers = customerBalances.filter(cb =>
     cb.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -87,12 +161,22 @@ export default function CustomersPage() {
             <h1 className="text-3xl font-bold text-foreground">Customers</h1>
             <p className="text-muted-foreground mt-1">Manage your customer database</p>
           </div>
-          <Link to="/customers/new">
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Customer
-            </Button>
-          </Link>
+           <div className="flex gap-2">
+             <Button variant="outline" onClick={handleExport} disabled={customerBalances.length === 0}>
+               <Download className="w-4 h-4 mr-2" />
+               Export
+             </Button>
+             <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+               <Upload className="w-4 h-4 mr-2" />
+               Import
+             </Button>
+             <Link to="/customers/new">
+               <Button className="gap-2">
+                 <Plus className="w-4 h-4" />
+                 Add Customer
+               </Button>
+             </Link>
+           </div>
         </div>
 
         {/* Stats Summary */}
@@ -267,6 +351,17 @@ export default function CustomersPage() {
           </div>
         )}
       </motion.div>
+ 
+       <ImportDialog<Customer>
+         open={isImportOpen}
+         onOpenChange={setIsImportOpen}
+         title="Import Customers"
+         description="Upload a CSV file to bulk import customers. Required column: Name."
+         templateColumns={["Name", "Email", "Phone", "Address", "City", "Country", "Tax ID", "Notes"]}
+         parseData={parseCustomersCSV}
+         onImport={handleImport}
+         onComplete={loadCustomers}
+       />
     </AppLayout>
   );
 }
