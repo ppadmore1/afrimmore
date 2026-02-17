@@ -62,6 +62,8 @@ export interface Invoice {
   due_date: string | null;
   payment_terms: string | null;
   notes: string | null;
+  project_code: string | null;
+  quotation_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -95,6 +97,7 @@ export interface Quotation {
   total: number;
   valid_until: string | null;
   notes: string | null;
+  project_code: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -548,6 +551,8 @@ export async function convertQuotationToInvoice(quotationId: string): Promise<In
     due_date: null,
     payment_terms: null,
     notes: quotation.notes,
+    project_code: quotation.project_code,
+    quotation_id: quotationId,
     created_by: quotation.created_by,
   }, quotation.items?.map(item => ({
     product_id: item.product_id,

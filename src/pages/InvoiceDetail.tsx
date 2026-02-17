@@ -166,15 +166,15 @@ export default function InvoiceDetail() {
     }
   }
 
-  function handleDownload() {
+  async function handleDownload() {
     if (!invoice) return;
-    downloadInvoicePDF(invoice, customer || undefined, payments);
+    await downloadInvoicePDF(invoice, customer || undefined, payments);
     toast({ title: "PDF downloaded" });
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!invoice) return;
-    printInvoice(invoice, customer || undefined, payments);
+    await printInvoice(invoice, customer || undefined, payments);
   }
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);

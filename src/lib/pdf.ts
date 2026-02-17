@@ -2,12 +2,80 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Invoice, Customer, Payment, Quotation, DeliveryNote } from './supabase-db';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
-export function generateInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): jsPDF {
-  const doc = new jsPDF();
+export interface CompanySettings {
+  company_name: string;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  tax_id: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  currency_symbol: string | null;
+  footer_text: string | null;
+  header_text: string | null;
+}
+
+export async function getCompanySettingsForPDF(): Promise<CompanySettings> {
+  const { data } = await supabase
+    .from('company_settings')
+    .select('*')
+    .limit(1)
+    .maybeSingle();
   
-  // Colors
-  const primaryColor: [number, number, number] = [37, 99, 235]; // Blue
+  return {
+    company_name: data?.company_name || 'My Company',
+    address: data?.address || null,
+    city: data?.city || null,
+    country: data?.country || null,
+    phone: data?.phone || null,
+    email: data?.email || null,
+    website: data?.website || null,
+    tax_id: data?.tax_id || null,
+    logo_url: data?.logo_url || null,
+    primary_color: data?.primary_color || '#3B82F6',
+    secondary_color: data?.secondary_color || '#1E40AF',
+    currency_symbol: data?.currency_symbol || '$',
+    footer_text: data?.footer_text || null,
+    header_text: data?.header_text || null,
+  };
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [59, 130, 246];
+}
+
+function drawCompanyInfo(doc: jsPDF, settings: CompanySettings, mutedColor: [number, number, number], textColor: [number, number, number]) {
+  doc.setTextColor(...textColor);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(settings.company_name, 20, 55);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...mutedColor);
+  let yPos = 62;
+  if (settings.address) { doc.text(settings.address, 20, yPos); yPos += 6; }
+  if (settings.city) { doc.text([settings.city, settings.country].filter(Boolean).join(', '), 20, yPos); yPos += 6; }
+  if (settings.email) { doc.text(settings.email, 20, yPos); yPos += 6; }
+  if (settings.phone) { doc.text(settings.phone, 20, yPos); yPos += 6; }
+  if (settings.tax_id) { doc.text(`Tax ID: ${settings.tax_id}`, 20, yPos); }
+}
+
+export function generateInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[], settings?: CompanySettings): jsPDF {
+  const doc = new jsPDF();
+  const cs = settings || { company_name: 'My Company', address: null, city: null, country: null, phone: null, email: null, website: null, tax_id: null, logo_url: null, primary_color: '#3B82F6', secondary_color: '#1E40AF', currency_symbol: '$', footer_text: null, header_text: null };
+  const cur = cs.currency_symbol || '$';
+  
+  // Colors from company settings
+  const primaryColor: [number, number, number] = hexToRgb(cs.primary_color || '#3B82F6');
   const textColor: [number, number, number] = [31, 41, 55];
   const mutedColor: [number, number, number] = [107, 114, 128];
 
@@ -24,17 +92,8 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   doc.setFont('helvetica', 'normal');
   doc.text(invoice.invoice_number, 190, 28, { align: 'right' });
 
-  // Company Info (left side)
-  doc.setTextColor(...textColor);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Your Company Name', 20, 55);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...mutedColor);
-  doc.text('123 Business Street', 20, 62);
-  doc.text('City, State 12345', 20, 68);
-  doc.text('contact@company.com', 20, 74);
+  // Company Info
+  drawCompanyInfo(doc, cs, mutedColor, textColor);
 
   // Invoice Details (right side)
   doc.setTextColor(...textColor);
@@ -44,6 +103,9 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   doc.text('Invoice Date:', detailsX, 55);
   doc.text('Due Date:', detailsX, 62);
   doc.text('Status:', detailsX, 69);
+  if (invoice.project_code) {
+    doc.text('Project Code:', detailsX, 76);
+  }
   
   doc.setFont('helvetica', 'normal');
   doc.text(format(new Date(invoice.created_at), 'MMM dd, yyyy'), 160, 55);
@@ -61,6 +123,12 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   doc.setTextColor(...statusColor);
   doc.setFont('helvetica', 'bold');
   doc.text(invoice.status.toUpperCase(), 160, 69);
+  
+  if (invoice.project_code) {
+    doc.setTextColor(...textColor);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.project_code, 160, 76);
+  }
 
   // Bill To
   doc.setTextColor(...textColor);
@@ -87,10 +155,10 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   const tableData = items.map(item => [
     item.description,
     item.quantity.toString(),
-    `$${item.unit_price.toFixed(2)}`,
+    `${cur}${item.unit_price.toFixed(2)}`,
     item.tax_rate ? `${item.tax_rate}%` : '-',
     item.discount ? `${item.discount}%` : '-',
-    `$${item.total.toFixed(2)}`,
+    `${cur}${item.total.toFixed(2)}`,
   ]);
 
   autoTable(doc, {
@@ -132,9 +200,9 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   doc.text('Discount:', 130, finalY + 16);
   
   doc.setTextColor(...textColor);
-  doc.text(`$${invoice.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
-  doc.text(`$${invoice.tax_total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
-  doc.text(`-$${invoice.discount_total.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
+  doc.text(`${cur}${invoice.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
+  doc.text(`${cur}${invoice.tax_total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
+  doc.text(`-${cur}${invoice.discount_total.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
   
   // Total line
   doc.setDrawColor(...primaryColor);
@@ -144,7 +212,7 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   doc.setFont('helvetica', 'bold');
   doc.text('Total:', 130, finalY + 32);
   doc.setTextColor(...primaryColor);
-  doc.text(`$${invoice.total.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
+  doc.text(`${cur}${invoice.total.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
 
   // Amount Paid & Balance
   if (payments && payments.length > 0) {
@@ -154,12 +222,12 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
     doc.setFontSize(10);
     doc.setTextColor(34, 197, 94);
     doc.text('Amount Paid:', 130, finalY + 42);
-    doc.text(`$${totalPaid.toFixed(2)}`, 190, finalY + 42, { align: 'right' });
+    doc.text(`${cur}${totalPaid.toFixed(2)}`, 190, finalY + 42, { align: 'right' });
     
     doc.setTextColor(...textColor);
     doc.setFont('helvetica', 'bold');
     doc.text('Balance Due:', 130, finalY + 50);
-    doc.text(`$${balance.toFixed(2)}`, 190, finalY + 50, { align: 'right' });
+    doc.text(`${cur}${balance.toFixed(2)}`, 190, finalY + 50, { align: 'right' });
   }
 
   // Payment Terms & Notes
@@ -192,27 +260,31 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
   // Footer
   doc.setFontSize(9);
   doc.setTextColor(...mutedColor);
-  doc.text('Thank you for your business!', 105, 280, { align: 'center' });
+  doc.text(cs.footer_text || 'Thank you for your business!', 105, 280, { align: 'center' });
 
   return doc;
 }
 
-export function downloadInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): void {
-  const doc = generateInvoicePDF(invoice, customer, payments);
+export async function downloadInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): Promise<void> {
+  const settings = await getCompanySettingsForPDF();
+  const doc = generateInvoicePDF(invoice, customer, payments, settings);
   doc.save(`${invoice.invoice_number}.pdf`);
 }
 
-export function printInvoice(invoice: Invoice, customer?: Customer, payments?: Payment[]): void {
-  const doc = generateInvoicePDF(invoice, customer, payments);
+export async function printInvoice(invoice: Invoice, customer?: Customer, payments?: Payment[]): Promise<void> {
+  const settings = await getCompanySettingsForPDF();
+  const doc = generateInvoicePDF(invoice, customer, payments, settings);
   doc.autoPrint();
   window.open(doc.output('bloburl'), '_blank');
 }
 
 // Quotation PDF
-export function generateQuotationPDF(quotation: Quotation): jsPDF {
+export function generateQuotationPDF(quotation: Quotation, settings?: CompanySettings): jsPDF {
   const doc = new jsPDF();
+  const cs = settings || { company_name: 'My Company', address: null, city: null, country: null, phone: null, email: null, website: null, tax_id: null, logo_url: null, primary_color: '#3B82F6', secondary_color: '#1E40AF', currency_symbol: '$', footer_text: null, header_text: null };
+  const cur = cs.currency_symbol || '$';
   
-  const primaryColor: [number, number, number] = [59, 130, 246]; // Blue
+  const primaryColor: [number, number, number] = hexToRgb(cs.primary_color || '#3B82F6');
   const textColor: [number, number, number] = [31, 41, 55];
   const mutedColor: [number, number, number] = [107, 114, 128];
 
@@ -230,16 +302,7 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   doc.text(quotation.quotation_number, 190, 28, { align: 'right' });
 
   // Company Info
-  doc.setTextColor(...textColor);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Your Company Name', 20, 55);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...mutedColor);
-  doc.text('123 Business Street', 20, 62);
-  doc.text('City, State 12345', 20, 68);
-  doc.text('contact@company.com', 20, 74);
+  drawCompanyInfo(doc, cs, mutedColor, textColor);
 
   // Quotation Details
   doc.setTextColor(...textColor);
@@ -249,6 +312,9 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   doc.text('Date:', detailsX, 55);
   doc.text('Valid Until:', detailsX, 62);
   doc.text('Status:', detailsX, 69);
+  if (quotation.project_code) {
+    doc.text('Project Code:', detailsX, 76);
+  }
   
   doc.setFont('helvetica', 'normal');
   doc.text(format(new Date(quotation.created_at), 'MMM dd, yyyy'), 160, 55);
@@ -264,6 +330,12 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   doc.setTextColor(...statusColor);
   doc.setFont('helvetica', 'bold');
   doc.text(quotation.status.toUpperCase(), 160, 69);
+
+  if (quotation.project_code) {
+    doc.setTextColor(...textColor);
+    doc.setFont('helvetica', 'normal');
+    doc.text(quotation.project_code, 160, 76);
+  }
 
   // Customer Info
   doc.setTextColor(...textColor);
@@ -290,10 +362,10 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   const tableData = items.map(item => [
     item.description,
     item.quantity.toString(),
-    `$${item.unit_price.toFixed(2)}`,
+    `${cur}${item.unit_price.toFixed(2)}`,
     item.tax_rate ? `${item.tax_rate}%` : '-',
     item.discount ? `${item.discount}%` : '-',
-    `$${item.total.toFixed(2)}`,
+    `${cur}${item.total.toFixed(2)}`,
   ]);
 
   autoTable(doc, {
@@ -335,9 +407,9 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   doc.text('Discount:', 130, finalY + 16);
   
   doc.setTextColor(...textColor);
-  doc.text(`$${quotation.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
-  doc.text(`$${quotation.tax_total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
-  doc.text(`-$${quotation.discount_total.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
+  doc.text(`${cur}${quotation.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
+  doc.text(`${cur}${quotation.tax_total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
+  doc.text(`-${cur}${quotation.discount_total.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
   
   doc.setDrawColor(...primaryColor);
   doc.line(120, finalY + 22, 190, finalY + 22);
@@ -346,7 +418,7 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.text('Total:', 130, finalY + 32);
   doc.setTextColor(...primaryColor);
-  doc.text(`$${quotation.total.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
+  doc.text(`${cur}${quotation.total.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
 
   // Notes
   if (quotation.notes) {
@@ -364,22 +436,24 @@ export function generateQuotationPDF(quotation: Quotation): jsPDF {
   // Footer
   doc.setFontSize(9);
   doc.setTextColor(...mutedColor);
-  doc.text('This quotation is valid for 30 days from the date of issue.', 105, 275, { align: 'center' });
+  doc.text(cs.footer_text || 'This quotation is valid for 30 days from the date of issue.', 105, 275, { align: 'center' });
   doc.text('Thank you for your interest!', 105, 282, { align: 'center' });
 
   return doc;
 }
 
-export function downloadQuotationPDF(quotation: Quotation): void {
-  const doc = generateQuotationPDF(quotation);
+export async function downloadQuotationPDF(quotation: Quotation): Promise<void> {
+  const settings = await getCompanySettingsForPDF();
+  const doc = generateQuotationPDF(quotation, settings);
   doc.save(`${quotation.quotation_number}.pdf`);
 }
 
 // Delivery Note PDF
-export function generateDeliveryNotePDF(deliveryNote: DeliveryNote): jsPDF {
+export function generateDeliveryNotePDF(deliveryNote: DeliveryNote, settings?: CompanySettings): jsPDF {
   const doc = new jsPDF();
+  const cs = settings || { company_name: 'My Company', address: null, city: null, country: null, phone: null, email: null, website: null, tax_id: null, logo_url: null, primary_color: '#10B981', secondary_color: '#1E40AF', currency_symbol: '$', footer_text: null, header_text: null };
   
-  const primaryColor: [number, number, number] = [16, 185, 129]; // Green
+  const primaryColor: [number, number, number] = hexToRgb(cs.primary_color || '#10B981');
   const textColor: [number, number, number] = [31, 41, 55];
   const mutedColor: [number, number, number] = [107, 114, 128];
 
@@ -397,16 +471,7 @@ export function generateDeliveryNotePDF(deliveryNote: DeliveryNote): jsPDF {
   doc.text(deliveryNote.delivery_number, 190, 28, { align: 'right' });
 
   // Company Info
-  doc.setTextColor(...textColor);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Your Company Name', 20, 55);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...mutedColor);
-  doc.text('123 Business Street', 20, 62);
-  doc.text('City, State 12345', 20, 68);
-  doc.text('contact@company.com', 20, 74);
+  drawCompanyInfo(doc, cs, mutedColor, textColor);
 
   // Delivery Details
   doc.setTextColor(...textColor);
@@ -532,12 +597,13 @@ export function generateDeliveryNotePDF(deliveryNote: DeliveryNote): jsPDF {
   // Footer
   doc.setFontSize(9);
   doc.setTextColor(...mutedColor);
-  doc.text('Please sign and return a copy as proof of delivery.', 105, 280, { align: 'center' });
+  doc.text(cs.footer_text || 'Please sign and return a copy as proof of delivery.', 105, 280, { align: 'center' });
 
   return doc;
 }
 
-export function downloadDeliveryNotePDF(deliveryNote: DeliveryNote): void {
-  const doc = generateDeliveryNotePDF(deliveryNote);
+export async function downloadDeliveryNotePDF(deliveryNote: DeliveryNote): Promise<void> {
+  const settings = await getCompanySettingsForPDF();
+  const doc = generateDeliveryNotePDF(deliveryNote, settings);
   doc.save(`${deliveryNote.delivery_number}.pdf`);
 }

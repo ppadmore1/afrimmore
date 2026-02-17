@@ -86,6 +86,7 @@ export default function QuotationForm() {
   const [status, setStatus] = useState<DocumentStatus>("draft");
   const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
+  const [projectCode, setProjectCode] = useState("");
   const [items, setItems] = useState<LineItem[]>([
     { id: crypto.randomUUID(), product_id: null, description: "", quantity: 1, unit_price: 0, tax_rate: 0, discount: 0, total: 0 }
   ]);
@@ -114,6 +115,7 @@ export default function QuotationForm() {
           setStatus(quotation.status);
           setValidUntil(quotation.valid_until || format(addDays(new Date(), 30), "yyyy-MM-dd"));
           setNotes(quotation.notes || "");
+          setProjectCode(quotation.project_code || "");
           if (quotation.items && quotation.items.length > 0) {
             setItems(quotation.items.map(item => ({
               id: item.id,
@@ -240,6 +242,7 @@ export default function QuotationForm() {
         total,
         valid_until: validUntil || null,
         notes: notes.trim() || null,
+        project_code: projectCode.trim() || null,
         created_by: null,
       };
 
@@ -353,7 +356,7 @@ export default function QuotationForm() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
+                onClick={async () => {
                   const quotation = {
                     id: id!,
                     quotation_number: quotationNumber,
@@ -371,6 +374,7 @@ export default function QuotationForm() {
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     created_by: null,
+                    project_code: projectCode || null,
                     items: items.map(item => ({
                       id: item.id,
                       quotation_id: id!,
@@ -384,7 +388,7 @@ export default function QuotationForm() {
                       created_at: new Date().toISOString(),
                     })),
                   };
-                  downloadQuotationPDF(quotation);
+                  await downloadQuotationPDF(quotation);
                   toast({ title: "PDF downloaded" });
                 }}
               >
@@ -510,6 +514,16 @@ export default function QuotationForm() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Additional notes..."
                     rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="projectCode">Project / Service Code (Optional)</Label>
+                  <Input
+                    id="projectCode"
+                    value={projectCode}
+                    onChange={(e) => setProjectCode(e.target.value)}
+                    placeholder="e.g., PRJ-001 or SVC-2026"
                   />
                 </div>
               </CardContent>
