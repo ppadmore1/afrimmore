@@ -30,8 +30,10 @@ import {
   addInvoice, 
   updateInvoice,
   getNextInvoiceNumber,
+  getQuotations,
   Customer, 
   Product,
+  Quotation,
   DocumentStatus,
 } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
@@ -59,6 +61,7 @@ export default function InvoiceForm() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -70,16 +73,20 @@ export default function InvoiceForm() {
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
+  const [projectCode, setProjectCode] = useState("");
+  const [selectedQuotationId, setSelectedQuotationId] = useState("");
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [customersData, productsData] = await Promise.all([
+        const [customersData, productsData, quotationsData] = await Promise.all([
           getCustomers(),
           getProducts(),
+          getQuotations(),
         ]);
         setCustomers(customersData);
         setProducts(productsData.filter(p => p.is_active !== false));
+        setQuotations(quotationsData.filter(q => q.status !== 'cancelled'));
 
         if (isEditing && id) {
           const invoice = await getInvoice(id);
@@ -90,6 +97,8 @@ export default function InvoiceForm() {
             setDueDate(invoice.due_date ? format(new Date(invoice.due_date), "yyyy-MM-dd") : "");
             setNotes(invoice.notes || "");
             setPaymentTerms(invoice.payment_terms || "Net 30");
+            setProjectCode(invoice.project_code || "");
+            setSelectedQuotationId(invoice.quotation_id || "");
             
             // Map invoice items
             if (invoice.items) {
@@ -231,6 +240,8 @@ export default function InvoiceForm() {
         due_date: dueDate || null,
         notes: notes || null,
         payment_terms: paymentTerms || null,
+        project_code: projectCode || null,
+        quotation_id: selectedQuotationId || null,
         created_by: user?.id || null,
       };
 
@@ -372,6 +383,40 @@ export default function InvoiceForm() {
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Project Code & Quotation Link */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Project & Quotation Link</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Project / Service Code (Optional)</Label>
+                <Input
+                  value={projectCode}
+                  onChange={(e) => setProjectCode(e.target.value)}
+                  placeholder="e.g., PRJ-001 or SVC-2026"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Linked Quotation (Optional)</Label>
+                <Select value={selectedQuotationId} onValueChange={setSelectedQuotationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select quotation" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="">None</SelectItem>
+                    {quotations.map((q) => (
+                      <SelectItem key={q.id} value={q.id}>
+                        {q.quotation_number} - {q.customer_name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

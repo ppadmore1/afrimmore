@@ -862,6 +862,8 @@ export type Database = {
           invoice_number: string
           notes: string | null
           payment_terms: string | null
+          project_code: string | null
+          quotation_id: string | null
           status: Database["public"]["Enums"]["document_status"]
           subtotal: number
           tax_total: number
@@ -882,6 +884,8 @@ export type Database = {
           invoice_number: string
           notes?: string | null
           payment_terms?: string | null
+          project_code?: string | null
+          quotation_id?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number
           tax_total?: number
@@ -902,6 +906,8 @@ export type Database = {
           invoice_number?: string
           notes?: string | null
           payment_terms?: string | null
+          project_code?: string | null
+          quotation_id?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number
           tax_total?: number
@@ -914,6 +920,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
             referencedColumns: ["id"]
           },
         ]
@@ -1465,6 +1478,7 @@ export type Database = {
           discount_total: number
           id: string
           notes: string | null
+          project_code: string | null
           quotation_number: string
           status: Database["public"]["Enums"]["document_status"]
           subtotal: number
@@ -1483,6 +1497,7 @@ export type Database = {
           discount_total?: number
           id?: string
           notes?: string | null
+          project_code?: string | null
           quotation_number: string
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number
@@ -1501,6 +1516,7 @@ export type Database = {
           discount_total?: number
           id?: string
           notes?: string | null
+          project_code?: string | null
           quotation_number?: string
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number

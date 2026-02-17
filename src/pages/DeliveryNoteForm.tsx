@@ -285,7 +285,7 @@ export default function DeliveryNoteForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
+              onClick={async () => {
                 const deliveryNote = {
                   id: id!,
                   delivery_number: deliveryNumber,
@@ -308,7 +308,7 @@ export default function DeliveryNoteForm() {
                     created_at: new Date().toISOString(),
                   })),
                 };
-                downloadDeliveryNotePDF(deliveryNote);
+                await downloadDeliveryNotePDF(deliveryNote);
                 toast({ title: "PDF downloaded" });
               }}
             >
