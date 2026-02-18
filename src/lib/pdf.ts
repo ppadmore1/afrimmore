@@ -4,6 +4,196 @@ import { Invoice, Customer, Payment, Quotation, DeliveryNote } from './supabase-
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
+// ── Template helpers ─────────────────────────────────────────────────────────
+
+interface DocumentTemplate {
+  id: string;
+  template_url: string;
+  is_active: boolean;
+  document_type: string;
+}
+
+async function getActiveTemplate(docType: string): Promise<DocumentTemplate | null> {
+  const { data } = await supabase
+    .from('document_templates')
+    .select('*')
+    .eq('document_type', docType)
+    .eq('is_active', true)
+    .maybeSingle();
+  return data as DocumentTemplate | null;
+}
+
+async function loadImageAsBase64(url: string): Promise<string> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function buildTemplateDoc(templateUrl: string): Promise<jsPDF> {
+  const doc = new jsPDF();
+  const imgData = await loadImageAsBase64(templateUrl);
+  // A4 page: 210 x 297 mm
+  doc.addImage(imgData, 'PNG', 0, 0, 210, 297);
+  return doc;
+}
+
+// Overlay company info + document data on top of the custom template image
+function overlayInvoiceOnTemplate(doc: jsPDF, invoice: Invoice, payments?: Payment[], cur = '$') {
+  const textColor: [number, number, number] = [31, 41, 55];
+  const mutedColor: [number, number, number] = [80, 80, 80];
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+
+  // Invoice number top-right
+  doc.setFontSize(10);
+  doc.text(invoice.invoice_number, 190, 20, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...mutedColor);
+
+  // Dates
+  doc.text(`Date: ${format(new Date(invoice.created_at), 'dd MMM yyyy')}`, 190, 27, { align: 'right' });
+  if (invoice.due_date) doc.text(`Due: ${format(new Date(invoice.due_date), 'dd MMM yyyy')}`, 190, 33, { align: 'right' });
+
+  // Customer block
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textColor);
+  doc.text('Bill To:', 15, 55);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(invoice.customer_name, 15, 62);
+  if (invoice.customer_email) doc.text(invoice.customer_email, 15, 67);
+  if (invoice.customer_address) {
+    const lines = invoice.customer_address.split('\n');
+    lines.forEach((line, i) => doc.text(line, 15, 72 + i * 5));
+  }
+
+  // Items table
+  const items = invoice.items || [];
+  autoTable(doc, {
+    startY: 85,
+    head: [['Description', 'Qty', `Unit Price (${cur})`, 'Total']],
+    body: items.map(item => [
+      item.description,
+      item.quantity.toString(),
+      item.unit_price.toFixed(2),
+      item.total.toFixed(2),
+    ]),
+    theme: 'plain',
+    headStyles: { fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240], textColor: [50, 50, 50] },
+    bodyStyles: { fontSize: 8, textColor: textColor },
+    margin: { left: 15, right: 15 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 6;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...mutedColor);
+  doc.text(`Subtotal: ${cur}${invoice.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
+  doc.text(`Tax: ${cur}${invoice.tax_total.toFixed(2)}`, 190, finalY + 6, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textColor);
+  doc.setFontSize(11);
+  doc.text(`Total: ${cur}${invoice.total.toFixed(2)}`, 190, finalY + 14, { align: 'right' });
+
+  if (payments && payments.length > 0) {
+    const paid = payments.reduce((s, p) => s + p.amount, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...mutedColor);
+    doc.text(`Paid: ${cur}${paid.toFixed(2)}`, 190, finalY + 22, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textColor);
+    doc.text(`Balance: ${cur}${(invoice.total - paid).toFixed(2)}`, 190, finalY + 29, { align: 'right' });
+  }
+}
+
+function overlayQuotationOnTemplate(doc: jsPDF, quotation: Quotation, cur = '$') {
+  const textColor: [number, number, number] = [31, 41, 55];
+  const mutedColor: [number, number, number] = [80, 80, 80];
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...textColor);
+  doc.text(quotation.quotation_number, 190, 20, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...mutedColor);
+  doc.text(`Date: ${format(new Date(quotation.created_at), 'dd MMM yyyy')}`, 190, 27, { align: 'right' });
+  if (quotation.valid_until) doc.text(`Valid Until: ${format(new Date(quotation.valid_until), 'dd MMM yyyy')}`, 190, 33, { align: 'right' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textColor);
+  doc.text('Quote For:', 15, 55);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(quotation.customer_name, 15, 62);
+  if (quotation.customer_email) doc.text(quotation.customer_email, 15, 67);
+
+  autoTable(doc, {
+    startY: 85,
+    head: [['Description', 'Qty', `Unit Price (${cur})`, 'Total']],
+    body: (quotation.items || []).map(item => [
+      item.description,
+      item.quantity.toString(),
+      item.unit_price.toFixed(2),
+      item.total.toFixed(2),
+    ]),
+    theme: 'plain',
+    headStyles: { fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240], textColor: [50, 50, 50] },
+    bodyStyles: { fontSize: 8, textColor: textColor },
+    margin: { left: 15, right: 15 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 6;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textColor);
+  doc.text(`Total: ${cur}${quotation.total.toFixed(2)}`, 190, finalY + 8, { align: 'right' });
+}
+
+function overlayDeliveryNoteOnTemplate(doc: jsPDF, deliveryNote: DeliveryNote) {
+  const textColor: [number, number, number] = [31, 41, 55];
+  const mutedColor: [number, number, number] = [80, 80, 80];
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...textColor);
+  doc.text(deliveryNote.delivery_number, 190, 20, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...mutedColor);
+  doc.text(`Date: ${format(new Date(deliveryNote.created_at), 'dd MMM yyyy')}`, 190, 27, { align: 'right' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textColor);
+  doc.text('Deliver To:', 15, 55);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(deliveryNote.customer_name, 15, 62);
+  if (deliveryNote.customer_address) doc.text(deliveryNote.customer_address, 15, 67);
+
+  autoTable(doc, {
+    startY: 85,
+    head: [['Item Description', 'Quantity']],
+    body: (deliveryNote.items || []).map(item => [item.description, item.quantity.toString()]),
+    theme: 'plain',
+    headStyles: { fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240], textColor: [50, 50, 50] },
+    bodyStyles: { fontSize: 8, textColor: textColor },
+    margin: { left: 15, right: 15 },
+  });
+}
+
 export interface CompanySettings {
   company_name: string;
   address: string | null;
@@ -266,12 +456,31 @@ export function generateInvoicePDF(invoice: Invoice, customer?: Customer, paymen
 }
 
 export async function downloadInvoicePDF(invoice: Invoice, customer?: Customer, payments?: Payment[]): Promise<void> {
+  const template = await getActiveTemplate('invoice');
+  if (template) {
+    const settings = await getCompanySettingsForPDF();
+    const cur = settings.currency_symbol || '$';
+    const doc = await buildTemplateDoc(template.template_url);
+    overlayInvoiceOnTemplate(doc, invoice, payments, cur);
+    doc.save(`${invoice.invoice_number}.pdf`);
+    return;
+  }
   const settings = await getCompanySettingsForPDF();
   const doc = generateInvoicePDF(invoice, customer, payments, settings);
   doc.save(`${invoice.invoice_number}.pdf`);
 }
 
 export async function printInvoice(invoice: Invoice, customer?: Customer, payments?: Payment[]): Promise<void> {
+  const template = await getActiveTemplate('invoice');
+  if (template) {
+    const settings = await getCompanySettingsForPDF();
+    const cur = settings.currency_symbol || '$';
+    const doc = await buildTemplateDoc(template.template_url);
+    overlayInvoiceOnTemplate(doc, invoice, payments, cur);
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+    return;
+  }
   const settings = await getCompanySettingsForPDF();
   const doc = generateInvoicePDF(invoice, customer, payments, settings);
   doc.autoPrint();
@@ -443,6 +652,15 @@ export function generateQuotationPDF(quotation: Quotation, settings?: CompanySet
 }
 
 export async function downloadQuotationPDF(quotation: Quotation): Promise<void> {
+  const template = await getActiveTemplate('quotation');
+  if (template) {
+    const settings = await getCompanySettingsForPDF();
+    const cur = settings.currency_symbol || '$';
+    const doc = await buildTemplateDoc(template.template_url);
+    overlayQuotationOnTemplate(doc, quotation, cur);
+    doc.save(`${quotation.quotation_number}.pdf`);
+    return;
+  }
   const settings = await getCompanySettingsForPDF();
   const doc = generateQuotationPDF(quotation, settings);
   doc.save(`${quotation.quotation_number}.pdf`);
@@ -603,6 +821,13 @@ export function generateDeliveryNotePDF(deliveryNote: DeliveryNote, settings?: C
 }
 
 export async function downloadDeliveryNotePDF(deliveryNote: DeliveryNote): Promise<void> {
+  const template = await getActiveTemplate('delivery_note');
+  if (template) {
+    const doc = await buildTemplateDoc(template.template_url);
+    overlayDeliveryNoteOnTemplate(doc, deliveryNote);
+    doc.save(`${deliveryNote.delivery_number}.pdf`);
+    return;
+  }
   const settings = await getCompanySettingsForPDF();
   const doc = generateDeliveryNotePDF(deliveryNote, settings);
   doc.save(`${deliveryNote.delivery_number}.pdf`);

@@ -44,6 +44,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import CustomFieldsPage from "./pages/CustomFieldsPage";
  import PayrollReportsPage from "./pages/PayrollReportsPage";
  import ProfilePage from "./pages/ProfilePage";
+import DocumentTemplatesPage from "./pages/DocumentTemplatesPage";
 
 const queryClient = new QueryClient();
 
@@ -100,9 +101,10 @@ const App = () => (
                <Route path="/discounts" element={<ProtectedRoute><DiscountCodesPage /></ProtectedRoute>} />
                <Route path="/activity-logs" element={<ProtectedRoute><ActivityLogsPage /></ProtectedRoute>} />
                <Route path="/custom-fields" element={<ProtectedRoute><CustomFieldsPage /></ProtectedRoute>} />
-                <Route path="/payroll-reports" element={<ProtectedRoute><PayrollReportsPage /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="*" element={<NotFound />} />
+               <Route path="/payroll-reports" element={<ProtectedRoute><PayrollReportsPage /></ProtectedRoute>} />
+               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+               <Route path="/document-templates" element={<ProtectedRoute><DocumentTemplatesPage /></ProtectedRoute>} />
+               <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
