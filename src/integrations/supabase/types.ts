@@ -595,6 +595,42 @@ export type Database = {
         }
         Relationships: []
       }
+      document_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_type: string
+          field_positions: Json
+          id: string
+          is_active: boolean
+          name: string
+          template_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          template_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          template_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_breaks: {
         Row: {
           break_end: string | null
