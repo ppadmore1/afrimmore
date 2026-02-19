@@ -62,7 +62,7 @@ export default function InvoiceForm() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
 
   // Form state
