@@ -30,6 +30,7 @@ import {
   FormInput,
    FileBarChart,
   LayoutTemplate,
+  TrendingDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ const navItems = [
   { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
   { icon: Users, label: "Customers", path: "/customers" },
   { icon: CreditCard, label: "Payments", path: "/payments" },
+  { icon: TrendingDown, label: "Expenses", path: "/expenses" },
   { icon: BarChart3, label: "Reports", path: "/reports" },
   { icon: Building2, label: "Branches", path: "/branches", adminOnly: true },
   { icon: BarChart3, label: "Admin Dashboard", path: "/admin", adminOnly: true },

@@ -467,6 +467,56 @@ export type Database = {
           },
         ]
       }
+      discount_approval_requests: {
+        Row: {
+          created_at: string
+          id: string
+          min_allowed_discount: number
+          product_id: string
+          reason: string | null
+          requested_by: string
+          requested_discount: number
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_allowed_discount: number
+          product_id: string
+          reason?: string | null
+          requested_by: string
+          requested_discount: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_allowed_discount?: number
+          product_id?: string
+          reason?: string | null
+          requested_by?: string
+          requested_discount?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_approval_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_code_usage: {
         Row: {
           customer_id: string | null
@@ -709,6 +759,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "employee_time_entries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          expense_date: string
+          expense_number: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          receipt_url: string | null
+          reference: string | null
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          amount?: number
+          branch_id?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          expense_date?: string
+          expense_number: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          reference?: string | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          expense_date?: string
+          expense_number?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          reference?: string | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
@@ -1248,6 +1360,7 @@ export type Database = {
           image_url: string | null
           is_active: boolean | null
           low_stock_threshold: number | null
+          min_discount_percent: number | null
           name: string
           sku: string | null
           stock_quantity: number
@@ -1266,6 +1379,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           low_stock_threshold?: number | null
+          min_discount_percent?: number | null
           name: string
           sku?: string | null
           stock_quantity?: number
@@ -1284,6 +1398,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           low_stock_threshold?: number | null
+          min_discount_percent?: number | null
           name?: string
           sku?: string | null
           stock_quantity?: number
@@ -1725,6 +1840,8 @@ export type Database = {
           quantity: number
           reference_id: string | null
           reference_type: string | null
+          total_cost: number | null
+          unit_cost: number | null
         }
         Insert: {
           branch_id?: string | null
@@ -1737,6 +1854,8 @@ export type Database = {
           quantity: number
           reference_id?: string | null
           reference_type?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
         }
         Update: {
           branch_id?: string | null
@@ -1749,6 +1868,8 @@ export type Database = {
           quantity?: number
           reference_id?: string | null
           reference_type?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
         }
         Relationships: [
           {

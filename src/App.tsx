@@ -45,6 +45,7 @@ import CustomFieldsPage from "./pages/CustomFieldsPage";
  import PayrollReportsPage from "./pages/PayrollReportsPage";
  import ProfilePage from "./pages/ProfilePage";
 import DocumentTemplatesPage from "./pages/DocumentTemplatesPage";
+import ExpensesPage from "./pages/ExpensesPage";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ const App = () => (
                <Route path="/payroll-reports" element={<ProtectedRoute><PayrollReportsPage /></ProtectedRoute>} />
                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                <Route path="/document-templates" element={<ProtectedRoute><DocumentTemplatesPage /></ProtectedRoute>} />
+               <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

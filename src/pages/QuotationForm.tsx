@@ -476,11 +476,32 @@ export default function QuotationForm() {
               </CardContent>
             </Card>
 
-            <Card>
+          <Card>
               <CardHeader>
-                <CardTitle>Details</CardTitle>
+                <CardTitle>Quotation Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Quotation Number</Label>
+                  <Input value={quotationNumber} disabled className="font-mono bg-muted" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input value={format(new Date(), "dd MMM yyyy")} disabled className="bg-muted" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="validUntil">Valid Until</Label>
+                    <Input
+                      id="validUntil"
+                      type="date"
+                      value={validUntil}
+                      onChange={(e) => setValidUntil(e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select value={status} onValueChange={(v) => setStatus(v as DocumentStatus)}>
@@ -497,12 +518,12 @@ export default function QuotationForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="validUntil">Valid Until</Label>
+                  <Label htmlFor="projectCode">Project / Service Code (Optional)</Label>
                   <Input
-                    id="validUntil"
-                    type="date"
-                    value={validUntil}
-                    onChange={(e) => setValidUntil(e.target.value)}
+                    id="projectCode"
+                    value={projectCode}
+                    onChange={(e) => setProjectCode(e.target.value)}
+                    placeholder="e.g., PRJ-001 or SVC-2026"
                   />
                 </div>
 
@@ -514,16 +535,6 @@ export default function QuotationForm() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Additional notes..."
                     rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="projectCode">Project / Service Code (Optional)</Label>
-                  <Input
-                    id="projectCode"
-                    value={projectCode}
-                    onChange={(e) => setProjectCode(e.target.value)}
-                    placeholder="e.g., PRJ-001 or SVC-2026"
                   />
                 </div>
               </CardContent>

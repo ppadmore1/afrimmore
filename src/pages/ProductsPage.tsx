@@ -13,6 +13,7 @@ import {
   Loader2,
    Download,
    Upload,
+   Filter,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -25,23 +26,43 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getProducts, deleteProduct, updateProduct, Product } from "@/lib/supabase-db";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getProducts, deleteProduct, updateProduct, Product, getCategories, Category } from "@/lib/supabase-db";
 import { toast } from "@/hooks/use-toast";
 import { BarcodeDialog, generateBarcodeValue } from "@/components/BarcodeGenerator";
  import { ImportDialog } from "@/components/ImportDialog";
  import { parseCSV, generateCSV, downloadCSV } from "@/lib/csv";
  import { supabase } from "@/integrations/supabase/client";
+import JsBarcode from "jsbarcode";
+import jsPDF from "jspdf";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingBarcodes, setGeneratingBarcodes] = useState(false);
+  const [downloadingBarcodes, setDownloadingBarcodes] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
    const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
+
+  async function loadCategories() {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch {}
+  }
 
   async function loadProducts() {
     try {
@@ -136,10 +157,12 @@ export default function ProductsPage() {
      return { success, failed };
    };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
-  );
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesCategory = categoryFilter === "all" || product.category_id === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   const productsWithoutBarcode = products.filter(p => !p.barcode);
 
@@ -176,6 +199,78 @@ export default function ProductsPage() {
     }
   }
 
+  async function downloadBulkBarcodes() {
+    const productsWithBarcode = filteredProducts.filter(p => p.barcode);
+    if (productsWithBarcode.length === 0) {
+      toast({ title: "No products with barcodes to download", variant: "destructive" });
+      return;
+    }
+
+    setDownloadingBarcodes(true);
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageW = 210;
+      const pageH = 297;
+      const cols = 3;
+      const rows = 6;
+      const cellW = pageW / cols;
+      const cellH = pageH / rows;
+      const margin = 4;
+
+      for (let i = 0; i < productsWithBarcode.length; i++) {
+        const product = productsWithBarcode[i];
+        const col = i % cols;
+        const row = Math.floor(i / cols) % rows;
+
+        if (i > 0 && i % (cols * rows) === 0) {
+          doc.addPage();
+        }
+
+        const x = col * cellW + margin;
+        const y = row * cellH + margin;
+        const w = cellW - margin * 2;
+        const h = cellH - margin * 2;
+
+        // Draw border
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(col * cellW + 1, row * cellH + 1, cellW - 2, cellH - 2, "S");
+
+        // Product name
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        const nameLines = doc.splitTextToSize(product.name, w);
+        doc.text(nameLines[0], x + w / 2, y + 5, { align: "center" });
+
+        // Generate barcode as SVG then convert
+        const canvas = document.createElement("canvas");
+        JsBarcode(canvas, product.barcode!, {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: true,
+          fontSize: 10,
+          margin: 2,
+        });
+        const imgData = canvas.toDataURL("image/png");
+        doc.addImage(imgData, "PNG", x, y + 7, w, h - 12);
+
+        // Price
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(`$${product.unit_price.toFixed(2)}`, x + w / 2, y + h - 1, { align: "center" });
+      }
+
+      doc.save(`barcodes_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast({ title: "Barcodes downloaded", description: `${productsWithBarcode.length} barcodes exported to PDF` });
+    } catch (error) {
+      console.error("Barcode download error:", error);
+      toast({ title: "Error generating barcode PDF", variant: "destructive" });
+    } finally {
+      setDownloadingBarcodes(false);
+    }
+  }
+
+
   return (
     <AppLayout>
       <motion.div
@@ -189,15 +284,27 @@ export default function ProductsPage() {
             <h1 className="text-3xl font-bold text-foreground">Products & Services</h1>
             <p className="text-muted-foreground mt-1">Manage your product catalog</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
              <Button variant="outline" onClick={handleExport} disabled={products.length === 0}>
                <Download className="w-4 h-4 mr-2" />
-               Export
+               Export CSV
              </Button>
              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                <Upload className="w-4 h-4 mr-2" />
                Import
              </Button>
+            <Button
+              variant="outline"
+              onClick={downloadBulkBarcodes}
+              disabled={downloadingBarcodes || filteredProducts.filter(p => p.barcode).length === 0}
+            >
+              {downloadingBarcodes ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Barcode className="w-4 h-4 mr-2" />
+              )}
+              Download Barcodes ({filteredProducts.filter(p => p.barcode).length})
+            </Button>
             {productsWithoutBarcode.length > 0 && (
               <Button 
                 variant="outline" 
@@ -222,20 +329,35 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search & Filter */}
         <Card>
           <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-3 flex-col sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-52">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
+
 
         {/* Products Grid */}
         {loading ? (
