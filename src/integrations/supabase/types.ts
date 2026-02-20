@@ -97,6 +97,222 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_thresholds: {
+        Row: {
+          action_type: string
+          approver_role: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          max_amount: number | null
+          min_amount: number
+          updated_at: string
+        }
+        Insert: {
+          action_type?: string
+          approver_role?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          max_amount?: number | null
+          min_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approver_role?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          max_amount?: number | null
+          min_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audit_visits: {
+        Row: {
+          auditor_id: string
+          branch_id: string
+          cash_notes: string | null
+          cash_ok: boolean | null
+          created_at: string
+          id: string
+          is_surprise: boolean
+          overall_notes: string | null
+          overall_score: number | null
+          reports_notes: string | null
+          reports_ok: boolean | null
+          staff_notes: string | null
+          staff_ok: boolean | null
+          status: string
+          stock_notes: string | null
+          stock_ok: boolean | null
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          auditor_id: string
+          branch_id: string
+          cash_notes?: string | null
+          cash_ok?: boolean | null
+          created_at?: string
+          id?: string
+          is_surprise?: boolean
+          overall_notes?: string | null
+          overall_score?: number | null
+          reports_notes?: string | null
+          reports_ok?: boolean | null
+          staff_notes?: string | null
+          staff_ok?: boolean | null
+          status?: string
+          stock_notes?: string | null
+          stock_ok?: boolean | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Update: {
+          auditor_id?: string
+          branch_id?: string
+          cash_notes?: string | null
+          cash_ok?: boolean | null
+          created_at?: string
+          id?: string
+          is_surprise?: boolean
+          overall_notes?: string | null
+          overall_score?: number | null
+          reports_notes?: string | null
+          reports_ok?: boolean | null
+          staff_notes?: string | null
+          staff_ok?: boolean | null
+          status?: string
+          stock_notes?: string | null
+          stock_ok?: boolean | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: []
+      }
+      branch_grades: {
+        Row: {
+          attendance_score: number | null
+          branch_id: string
+          created_at: string
+          expense_score: number | null
+          grade: string | null
+          graded_by: string | null
+          id: string
+          notes: string | null
+          overall_score: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          revenue_score: number | null
+          stock_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          attendance_score?: number | null
+          branch_id: string
+          created_at?: string
+          expense_score?: number | null
+          grade?: string | null
+          graded_by?: string | null
+          id?: string
+          notes?: string | null
+          overall_score?: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          revenue_score?: number | null
+          stock_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attendance_score?: number | null
+          branch_id?: string
+          created_at?: string
+          expense_score?: number | null
+          grade?: string | null
+          graded_by?: string | null
+          id?: string
+          notes?: string | null
+          overall_score?: number | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          revenue_score?: number | null
+          stock_score?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      branch_reports: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          branch_id: string
+          created_at: string
+          data: Json | null
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          report_type: string
+          status: string
+          stock_movements_count: number
+          submitted_at: string | null
+          submitted_by: string | null
+          total_expenses: number
+          total_profit: number
+          total_sales: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id: string
+          created_at?: string
+          data?: Json | null
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          report_type: string
+          status?: string
+          stock_movements_count?: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_expenses?: number
+          total_profit?: number
+          total_sales?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string
+          created_at?: string
+          data?: Json | null
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          report_type?: string
+          status?: string
+          stock_movements_count?: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_expenses?: number
+          total_profit?: number
+          total_sales?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           address: string | null

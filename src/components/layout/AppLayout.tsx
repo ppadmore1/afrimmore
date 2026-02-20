@@ -29,8 +29,12 @@ import {
  Percent,
   FormInput,
    FileBarChart,
-  LayoutTemplate,
-  TrendingDown,
+   FileBarChart2,
+   LayoutTemplate,
+   TrendingDown,
+   ShieldCheck,
+   ShieldAlert,
+   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -76,9 +80,13 @@ const navItems = [
  { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
  { icon: Percent, label: "Discount Codes", path: "/discounts", adminOnly: true },
  { icon: History, label: "Activity Logs", path: "/activity-logs", adminOnly: true },
- { icon: FormInput, label: "Custom Fields", path: "/custom-fields", adminOnly: true },
+  { icon: FormInput, label: "Custom Fields", path: "/custom-fields", adminOnly: true },
    { icon: FileBarChart, label: "Payroll Reports", path: "/payroll-reports", adminOnly: true },
   { icon: LayoutTemplate, label: "Document Templates", path: "/document-templates", adminOnly: true },
+  { icon: ShieldCheck, label: "Approval Thresholds", path: "/approval-thresholds", adminOnly: true },
+  { icon: FileBarChart2, label: "Branch Reports", path: "/branch-reports" },
+  { icon: Star, label: "Branch Grades", path: "/branch-grades", adminOnly: true },
+  { icon: ShieldAlert, label: "Audit Visits", path: "/audit-visits", adminOnly: true },
 ];
 
 interface AppLayoutProps {

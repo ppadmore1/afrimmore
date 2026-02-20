@@ -820,6 +820,145 @@ export function generateDeliveryNotePDF(deliveryNote: DeliveryNote, settings?: C
   return doc;
 }
 
+// Purchase Order PDF
+export function generatePurchaseOrderPDF(po: {
+  po_number: string;
+  supplier_name: string;
+  supplier_email?: string | null;
+  branch_name?: string | null;
+  order_date: string;
+  expected_date?: string | null;
+  status: string;
+  notes?: string | null;
+  subtotal: number;
+  tax_total: number;
+  total: number;
+  items: { product_name: string; sku?: string | null; quantity: number; unit_cost: number; total: number }[];
+}, settings?: CompanySettings): jsPDF {
+  const doc = new jsPDF();
+  const cs = settings || { company_name: 'My Company', address: null, city: null, country: null, phone: null, email: null, website: null, tax_id: null, logo_url: null, primary_color: '#3B82F6', secondary_color: '#1E40AF', currency_symbol: '$', footer_text: null, header_text: null };
+  const cur = cs.currency_symbol || '$';
+  const primaryColor: [number, number, number] = hexToRgb(cs.primary_color || '#6366F1');
+  const textColor: [number, number, number] = [31, 41, 55];
+  const mutedColor: [number, number, number] = [107, 114, 128];
+
+  // Header
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 220, 40, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PURCHASE ORDER', 20, 28);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(po.po_number, 190, 28, { align: 'right' });
+
+  // Company Info
+  drawCompanyInfo(doc, cs, mutedColor, textColor);
+
+  // PO Details (right side)
+  doc.setTextColor(...textColor);
+  doc.setFontSize(10);
+  const dx = 120;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Order Date:', dx, 55);
+  doc.text('Expected Date:', dx, 62);
+  doc.text('Status:', dx, 69);
+  if (po.branch_name) doc.text('Branch:', dx, 76);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(format(new Date(po.order_date), 'MMM dd, yyyy'), 165, 55);
+  doc.text(po.expected_date ? format(new Date(po.expected_date), 'MMM dd, yyyy') : 'TBD', 165, 62);
+  doc.setTextColor(...primaryColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text(po.status.toUpperCase(), 165, 69);
+  if (po.branch_name) {
+    doc.setTextColor(...textColor);
+    doc.setFont('helvetica', 'normal');
+    doc.text(po.branch_name, 165, 76);
+  }
+
+  // Supplier Info
+  doc.setTextColor(...textColor);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Supplier:', 20, 95);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(po.supplier_name, 20, 103);
+  doc.setTextColor(...mutedColor);
+  if (po.supplier_email) doc.text(po.supplier_email, 20, 110);
+
+  // Items table
+  autoTable(doc, {
+    startY: 125,
+    head: [['Item', 'SKU', 'Quantity', `Unit Cost (${cur})`, `Total (${cur})`]],
+    body: po.items.map(item => [
+      item.product_name,
+      item.sku || '-',
+      item.quantity.toString(),
+      item.unit_cost.toFixed(2),
+      item.total.toFixed(2),
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+    bodyStyles: { fontSize: 9, textColor: textColor },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 25, halign: 'center' },
+      3: { cellWidth: 35, halign: 'right' },
+      4: { cellWidth: 35, halign: 'right' },
+    },
+    margin: { left: 20, right: 20 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFontSize(10);
+  doc.setTextColor(...mutedColor);
+  doc.text('Subtotal:', 130, finalY);
+  doc.setTextColor(...textColor);
+  doc.text(`${cur}${po.subtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
+  doc.setDrawColor(...primaryColor);
+  doc.line(120, finalY + 8, 190, finalY + 8);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Total:', 130, finalY + 18);
+  doc.setTextColor(...primaryColor);
+  doc.text(`${cur}${po.total.toFixed(2)}`, 190, finalY + 18, { align: 'right' });
+
+  if (po.notes) {
+    const ny = finalY + 35;
+    doc.setFontSize(10);
+    doc.setTextColor(...textColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Notes:', 20, ny);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...mutedColor);
+    const noteLines = doc.splitTextToSize(po.notes, 170);
+    doc.text(noteLines, 20, ny + 7);
+  }
+
+  // Signature block
+  const sigY = 250;
+  doc.setTextColor(...textColor);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Authorized By:', 20, sigY);
+  doc.setDrawColor(...mutedColor);
+  doc.line(20, sigY + 20, 90, sigY + 20);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...mutedColor);
+  doc.text('Signature & Date', 55, sigY + 26, { align: 'center' });
+
+  doc.setFontSize(9);
+  doc.text(cs.footer_text || 'This is an official purchase order. Please supply the goods as listed above.', 105, 280, { align: 'center' });
+
+  return doc;
+}
+
 export async function downloadDeliveryNotePDF(deliveryNote: DeliveryNote): Promise<void> {
   const template = await getActiveTemplate('delivery_note');
   if (template) {
