@@ -14,7 +14,9 @@ import {
   CheckCircle2,
   History,
   User,
+  Download,
 } from "lucide-react";
+import { generatePurchaseOrderPDF, getCompanySettingsForPDF } from "@/lib/pdf";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -718,6 +720,30 @@ export default function PurchaseOrderForm() {
             </p>
           </div>
           <div className="flex gap-2">
+            {isEditing && (
+              <Button variant="outline" onClick={async () => {
+                const supplier = suppliers.find(s => s.id === supplierId);
+                const branch = branches.find(b => b.id === branchId);
+                const settings = await getCompanySettingsForPDF();
+                const doc = generatePurchaseOrderPDF({
+                  po_number: id || "PO",
+                  supplier_name: supplier?.name || "Unknown Supplier",
+                  branch_name: branch?.name || null,
+                  order_date: orderDate,
+                  expected_date: expectedDate || null,
+                  status,
+                  notes: notes || null,
+                  subtotal,
+                  tax_total: 0,
+                  total,
+                  items: items.map(i => ({ product_name: i.product_name, sku: i.sku, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total })),
+                }, settings);
+                doc.save(`${id || "PO"}.pdf`);
+              }}>
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </Button>
+            )}
             {canReceiveGoods && (
               <Button variant="outline" onClick={openReceiveDialog}>
                 <PackageCheck className="w-4 h-4 mr-2" />

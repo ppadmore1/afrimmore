@@ -46,6 +46,10 @@ import CustomFieldsPage from "./pages/CustomFieldsPage";
  import ProfilePage from "./pages/ProfilePage";
 import DocumentTemplatesPage from "./pages/DocumentTemplatesPage";
 import ExpensesPage from "./pages/ExpensesPage";
+import ApprovalThresholdsPage from "./pages/ApprovalThresholdsPage";
+import BranchReportsPage from "./pages/BranchReportsPage";
+import BranchGradesPage from "./pages/BranchGradesPage";
+import AuditVisitsPage from "./pages/AuditVisitsPage";
 
 const queryClient = new QueryClient();
 
@@ -106,6 +110,10 @@ const App = () => (
                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                <Route path="/document-templates" element={<ProtectedRoute><DocumentTemplatesPage /></ProtectedRoute>} />
                <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
+               <Route path="/approval-thresholds" element={<ProtectedRoute><ApprovalThresholdsPage /></ProtectedRoute>} />
+               <Route path="/branch-reports" element={<ProtectedRoute><BranchReportsPage /></ProtectedRoute>} />
+               <Route path="/branch-grades" element={<ProtectedRoute><BranchGradesPage /></ProtectedRoute>} />
+               <Route path="/audit-visits" element={<ProtectedRoute><AuditVisitsPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
