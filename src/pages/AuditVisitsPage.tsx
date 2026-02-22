@@ -3,18 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { Search, Plus, ShieldAlert, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { format, subDays } from "date-fns";
+import { Search, Play, ShieldAlert, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Branch { id: string; name: string; }
@@ -38,32 +36,141 @@ interface AuditVisit {
   created_at: string;
 }
 
+interface AutoAuditResult {
+  stock_ok: boolean;
+  cash_ok: boolean;
+  staff_ok: boolean;
+  reports_ok: boolean;
+  stock_notes: string;
+  cash_notes: string;
+  staff_notes: string;
+  reports_notes: string;
+  overall_notes: string;
+  overall_score: number;
+}
+
 function StatusIcon({ ok }: { ok: boolean | null }) {
   if (ok === null) return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
   return ok ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-destructive" />;
 }
 
+async function runAutoAudit(branchId: string): Promise<AutoAuditResult> {
+  const today = new Date();
+  const sevenDaysAgo = format(subDays(today, 7), "yyyy-MM-dd");
+  const todayStr = format(today, "yyyy-MM-dd");
+
+  // Pull all data in parallel
+  const [stockRes, salesRes, paymentsRes, timeRes, reportsRes] = await Promise.all([
+    // Stock: check for low-stock products in this branch
+    supabase
+      .from("product_branches")
+      .select("stock_quantity, low_stock_threshold, product_id")
+      .eq("branch_id", branchId),
+    // Cash: POS sales in last 7 days
+    supabase
+      .from("pos_sales")
+      .select("total, amount_paid, change_amount, payment_method, sale_number")
+      .eq("branch_id", branchId)
+      .gte("created_at", sevenDaysAgo),
+    // Payments in last 7 days
+    supabase
+      .from("payments")
+      .select("amount, payment_method")
+      .gte("created_at", sevenDaysAgo),
+    // Staff: time entries in last 7 days for this branch
+    supabase
+      .from("employee_time_entries")
+      .select("user_id, clock_in, clock_out, status, total_hours")
+      .eq("branch_id", branchId)
+      .gte("clock_in", sevenDaysAgo),
+    // Reports: branch reports for this branch
+    supabase
+      .from("branch_reports")
+      .select("status, report_type, total_sales, total_expenses")
+      .eq("branch_id", branchId)
+      .gte("created_at", sevenDaysAgo),
+  ]);
+
+  // --- STOCK ANALYSIS ---
+  const stockItems = stockRes.data || [];
+  const totalProducts = stockItems.length;
+  const lowStockItems = stockItems.filter(
+    (s) => s.stock_quantity <= (s.low_stock_threshold || 10)
+  );
+  const zeroStockItems = stockItems.filter((s) => s.stock_quantity <= 0);
+  const lowStockPct = totalProducts > 0 ? (lowStockItems.length / totalProducts) * 100 : 0;
+  const stockOk = lowStockPct < 20 && zeroStockItems.length === 0;
+  const stockNotes = totalProducts === 0
+    ? "No inventory assigned to this branch."
+    : `${totalProducts} products tracked. ${lowStockItems.length} low stock (${lowStockPct.toFixed(0)}%), ${zeroStockItems.length} out of stock.`;
+
+  // --- CASH ANALYSIS ---
+  const sales = salesRes.data || [];
+  const totalSalesAmount = sales.reduce((s, r) => s + Number(r.total), 0);
+  const totalPaid = sales.reduce((s, r) => s + Number(r.amount_paid), 0);
+  const cashDiscrepancy = Math.abs(totalPaid - totalSalesAmount - sales.reduce((s, r) => s + Number(r.change_amount), 0));
+  const cashOk = cashDiscrepancy < 1 && sales.length > 0;
+  const cashNotes = sales.length === 0
+    ? "No POS sales recorded in the last 7 days."
+    : `${sales.length} sales totaling ${totalSalesAmount.toFixed(2)}. Cash collected: ${totalPaid.toFixed(2)}. Discrepancy: ${cashDiscrepancy.toFixed(2)}.`;
+
+  // --- STAFF ANALYSIS ---
+  const timeEntries = timeRes.data || [];
+  const uniqueStaff = new Set(timeEntries.map((t) => t.user_id)).size;
+  const openEntries = timeEntries.filter((t) => t.status === "clocked_in" && !t.clock_out);
+  const avgHours = timeEntries.length > 0
+    ? timeEntries.reduce((s, t) => s + Number(t.total_hours || 0), 0) / timeEntries.length
+    : 0;
+  const staffOk = uniqueStaff > 0 && openEntries.length <= 1;
+  const staffNotes = timeEntries.length === 0
+    ? "No staff time entries recorded for this branch in the last 7 days."
+    : `${uniqueStaff} staff member(s) logged ${timeEntries.length} entries. Avg hours: ${avgHours.toFixed(1)}h. ${openEntries.length} unclosed session(s).`;
+
+  // --- REPORTS ANALYSIS ---
+  const reports = reportsRes.data || [];
+  const submittedReports = reports.filter((r) => r.status !== "pending");
+  const reportsOk = reports.length > 0 && submittedReports.length >= reports.length * 0.5;
+  const reportsNotes = reports.length === 0
+    ? "No branch reports submitted in the last 7 days."
+    : `${reports.length} report(s) found. ${submittedReports.length} submitted/approved. ${reports.length - submittedReports.length} still pending.`;
+
+  // --- OVERALL ---
+  const checks = [stockOk, cashOk, staffOk, reportsOk];
+  const passed = checks.filter(Boolean).length;
+  const overallScore = Math.round((passed / 4) * 100);
+
+  const issues: string[] = [];
+  if (!stockOk) issues.push("stock concerns");
+  if (!cashOk) issues.push("cash discrepancies");
+  if (!staffOk) issues.push("staff attendance gaps");
+  if (!reportsOk) issues.push("incomplete reports");
+
+  const overallNotes = issues.length === 0
+    ? `All checks passed. Branch is operating well with ${sales.length} sales and ${uniqueStaff} active staff in the last 7 days.`
+    : `Issues detected: ${issues.join(", ")}. Score: ${overallScore}%. Review individual sections for details.`;
+
+  return {
+    stock_ok: stockOk,
+    cash_ok: cashOk,
+    staff_ok: staffOk,
+    reports_ok: reportsOk,
+    stock_notes: stockNotes,
+    cash_notes: cashNotes,
+    staff_notes: staffNotes,
+    reports_notes: reportsNotes,
+    overall_notes: overallNotes,
+    overall_score: overallScore,
+  };
+}
+
 export default function AuditVisitsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [detailAudit, setDetailAudit] = useState<AuditVisit | null>(null);
   const [search, setSearch] = useState("");
-
-  const [form, setForm] = useState({
-    branch_id: "",
-    visit_date: format(new Date(), "yyyy-MM-dd"),
-    is_surprise: true,
-    stock_ok: null as boolean | null,
-    cash_ok: null as boolean | null,
-    staff_ok: null as boolean | null,
-    reports_ok: null as boolean | null,
-    stock_notes: "",
-    cash_notes: "",
-    staff_notes: "",
-    reports_notes: "",
-    overall_notes: "",
-  });
+  const [auditPreview, setAuditPreview] = useState<AutoAuditResult | null>(null);
 
   const { data: branches = [] } = useQuery({
     queryKey: ["branches-list"],
@@ -86,39 +193,43 @@ export default function AuditVisitsPage() {
     },
   });
 
-  function calcScore(): number {
-    const checks = [form.stock_ok, form.cash_ok, form.staff_ok, form.reports_ok];
-    const passed = checks.filter((c) => c === true).length;
-    const assessed = checks.filter((c) => c !== null).length;
-    return assessed > 0 ? Math.round((passed / assessed) * 100) : 0;
-  }
+  const runAuditMutation = useMutation({
+    mutationFn: async () => {
+      const result = await runAutoAudit(selectedBranchId);
+      setAuditPreview(result);
+      return result;
+    },
+    onError: (e: any) => toast({ title: "Error running audit", description: e.message, variant: "destructive" }),
+  });
 
-  const saveMutation = useMutation({
-    mutationFn: async (complete: boolean) => {
-      const score = calcScore();
+  const saveAuditMutation = useMutation({
+    mutationFn: async () => {
+      if (!auditPreview) throw new Error("No audit data");
       const { error } = await supabase.from("audit_visits").insert({
-        branch_id: form.branch_id,
+        branch_id: selectedBranchId,
         auditor_id: user?.id,
-        visit_date: form.visit_date,
-        is_surprise: form.is_surprise,
-        status: complete ? "completed" : "in_progress",
-        stock_ok: form.stock_ok,
-        cash_ok: form.cash_ok,
-        staff_ok: form.staff_ok,
-        reports_ok: form.reports_ok,
-        stock_notes: form.stock_notes || null,
-        cash_notes: form.cash_notes || null,
-        staff_notes: form.staff_notes || null,
-        reports_notes: form.reports_notes || null,
-        overall_notes: form.overall_notes || null,
-        overall_score: score,
+        visit_date: format(new Date(), "yyyy-MM-dd"),
+        is_surprise: true,
+        status: "completed",
+        stock_ok: auditPreview.stock_ok,
+        cash_ok: auditPreview.cash_ok,
+        staff_ok: auditPreview.staff_ok,
+        reports_ok: auditPreview.reports_ok,
+        stock_notes: auditPreview.stock_notes,
+        cash_notes: auditPreview.cash_notes,
+        staff_notes: auditPreview.staff_notes,
+        reports_notes: auditPreview.reports_notes,
+        overall_notes: auditPreview.overall_notes,
+        overall_score: auditPreview.overall_score,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["audit-visits"] });
-      toast({ title: "Audit visit recorded" });
-      setDialogOpen(false);
+      toast({ title: "Audit saved successfully" });
+      setRunDialogOpen(false);
+      setAuditPreview(null);
+      setSelectedBranchId("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -132,7 +243,7 @@ export default function AuditVisitsPage() {
     total: audits.length,
     completed: audits.filter((a) => a.status === "completed").length,
     avgScore: audits.length > 0
-      ? Math.round(audits.filter((a) => a.overall_score !== null).reduce((s, a) => s + (a.overall_score || 0), 0) / audits.filter((a) => a.overall_score !== null).length || 0)
+      ? Math.round(audits.filter((a) => a.overall_score !== null).reduce((s, a) => s + (a.overall_score || 0), 0) / (audits.filter((a) => a.overall_score !== null).length || 1))
       : 0,
   };
 
@@ -142,32 +253,17 @@ export default function AuditVisitsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Surprise Audits</h1>
-            <p className="text-muted-foreground mt-1">Conduct secret audits on branches — results visible only to admin</p>
+            <p className="text-muted-foreground mt-1">Select a branch and run an automatic audit report</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" /> New Audit
+          <Button onClick={() => { setRunDialogOpen(true); setAuditPreview(null); setSelectedBranchId(""); }} className="gap-2">
+            <Play className="w-4 h-4" /> Run Audit
           </Button>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Total Audits</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Avg Score</p>
-              <p className="text-2xl font-bold font-mono">{stats.avgScore}%</p>
-            </CardContent>
-          </Card>
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Total Audits</p><p className="text-2xl font-bold">{stats.total}</p></CardContent></Card>
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Completed</p><p className="text-2xl font-bold text-green-600">{stats.completed}</p></CardContent></Card>
+          <Card><CardContent className="pt-4"><p className="text-sm text-muted-foreground">Avg Score</p><p className="text-2xl font-bold font-mono">{stats.avgScore}%</p></CardContent></Card>
         </div>
 
         <div className="relative">
@@ -220,9 +316,7 @@ export default function AuditVisitsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={a.status === "completed" ? "default" : "secondary"}>
-                            {a.status}
-                          </Badge>
+                          <Badge variant={a.status === "completed" ? "default" : "secondary"}>{a.status}</Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">View</TableCell>
                       </TableRow>
@@ -235,80 +329,76 @@ export default function AuditVisitsPage() {
         </Card>
       </div>
 
-      {/* New Audit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Run Audit Dialog */}
+      <Dialog open={runDialogOpen} onOpenChange={setRunDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-5 h-5" /> Conduct Audit Visit</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-5 h-5" /> Run Auto Audit</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+
+          {!auditPreview ? (
+            <div className="space-y-4">
               <div>
-                <Label>Branch</Label>
-                <Select value={form.branch_id} onValueChange={(v) => setForm((p) => ({ ...p, branch_id: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                <Label>Select Branch</Label>
+                <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a branch" /></SelectTrigger>
                   <SelectContent>
                     {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Visit Date</Label>
-                <Input type="date" value={form.visit_date} onChange={(e) => setForm((p) => ({ ...p, visit_date: e.target.value }))} className="mt-1" />
+              <p className="text-sm text-muted-foreground">
+                This will automatically check stock levels, cash/sales records, staff attendance, and report submissions for the last 7 days.
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRunDialogOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => runAuditMutation.mutate()}
+                  disabled={!selectedBranchId || runAuditMutation.isPending}
+                  className="gap-2"
+                >
+                  {runAuditMutation.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</> : <><Play className="w-4 h-4" /> Run Audit</>}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted text-center">
+                <p className="text-sm text-muted-foreground">Audit Score</p>
+                <p className={`text-4xl font-bold font-mono ${auditPreview.overall_score >= 75 ? "text-green-600" : auditPreview.overall_score >= 50 ? "text-yellow-600" : "text-destructive"}`}>
+                  {auditPreview.overall_score}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{branches.find(b => b.id === selectedBranchId)?.name} — {format(new Date(), "MMM d, yyyy")}</p>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={form.is_surprise}
-                onCheckedChange={(v) => setForm((p) => ({ ...p, is_surprise: v }))}
-              />
-              <Label>This is a surprise / unannounced visit</Label>
-            </div>
-            <div className="space-y-3">
+
               {[
-                { key: "stock_ok", notesKey: "stock_notes", label: "Stock Levels", placeholder: "e.g. Inventory matches records, no unexplained shortages" },
-                { key: "cash_ok", notesKey: "cash_notes", label: "Cash & Payments", placeholder: "e.g. Cash drawer matches POS totals" },
-                { key: "staff_ok", notesKey: "staff_notes", label: "Staff Behavior & Compliance", placeholder: "e.g. Staff present, professional conduct observed" },
-                { key: "reports_ok", notesKey: "reports_notes", label: "Report Accuracy", placeholder: "e.g. Sales reports match system records" },
-              ].map(({ key, notesKey, label, placeholder }) => (
-                <div key={key} className="p-3 border border-border rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-medium">{label}</Label>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant={(form as any)[key] === true ? "default" : "outline"} onClick={() => setForm((p) => ({ ...p, [key]: true }))}>
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Pass
-                      </Button>
-                      <Button size="sm" variant={(form as any)[key] === false ? "destructive" : "outline"} onClick={() => setForm((p) => ({ ...p, [key]: false }))}>
-                        <XCircle className="w-3.5 h-3.5 mr-1" /> Fail
-                      </Button>
-                    </div>
+                { label: "Stock Levels", ok: auditPreview.stock_ok, notes: auditPreview.stock_notes },
+                { label: "Cash & Payments", ok: auditPreview.cash_ok, notes: auditPreview.cash_notes },
+                { label: "Staff Attendance", ok: auditPreview.staff_ok, notes: auditPreview.staff_notes },
+                { label: "Report Submissions", ok: auditPreview.reports_ok, notes: auditPreview.reports_notes },
+              ].map(({ label, ok, notes }) => (
+                <div key={label} className="flex gap-3 p-3 border border-border rounded-lg">
+                  <StatusIcon ok={ok} />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{label}: <span className={ok ? "text-green-600" : "text-destructive"}>{ok ? "Pass" : "Fail"}</span></p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{notes}</p>
                   </div>
-                  <Input
-                    value={(form as any)[notesKey]}
-                    onChange={(e) => setForm((p) => ({ ...p, [notesKey]: e.target.value }))}
-                    placeholder={placeholder}
-                  />
                 </div>
               ))}
+
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Summary</p>
+                <p className="text-sm">{auditPreview.overall_notes}</p>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setAuditPreview(null); }}>Re-run</Button>
+                <Button onClick={() => saveAuditMutation.mutate()} disabled={saveAuditMutation.isPending}>
+                  {saveAuditMutation.isPending ? "Saving..." : "Save Audit Report"}
+                </Button>
+              </DialogFooter>
             </div>
-            <div>
-              <Label>Overall Observations</Label>
-              <Textarea value={form.overall_notes} onChange={(e) => setForm((p) => ({ ...p, overall_notes: e.target.value }))} placeholder="Overall summary of findings..." className="mt-1" rows={3} />
-            </div>
-            <div className="p-3 bg-muted rounded-lg text-center">
-              <p className="text-sm text-muted-foreground">Estimated Score</p>
-              <p className="text-3xl font-bold font-mono">{calcScore()}%</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button variant="outline" onClick={() => saveMutation.mutate(false)} disabled={saveMutation.isPending || !form.branch_id}>
-              Save In Progress
-            </Button>
-            <Button onClick={() => saveMutation.mutate(true)} disabled={saveMutation.isPending || !form.branch_id}>
-              {saveMutation.isPending ? "Saving..." : "Complete Audit"}
-            </Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
