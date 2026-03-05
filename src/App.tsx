@@ -50,6 +50,7 @@ import ApprovalThresholdsPage from "./pages/ApprovalThresholdsPage";
 import BranchReportsPage from "./pages/BranchReportsPage";
 import BranchGradesPage from "./pages/BranchGradesPage";
 import AuditVisitsPage from "./pages/AuditVisitsPage";
+import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +115,7 @@ const App = () => (
                <Route path="/branch-reports" element={<ProtectedRoute><BranchReportsPage /></ProtectedRoute>} />
                <Route path="/branch-grades" element={<ProtectedRoute><BranchGradesPage /></ProtectedRoute>} />
                <Route path="/audit-visits" element={<ProtectedRoute><AuditVisitsPage /></ProtectedRoute>} />
+               <Route path="/financial-statements" element={<ProtectedRoute><FinancialStatementsPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

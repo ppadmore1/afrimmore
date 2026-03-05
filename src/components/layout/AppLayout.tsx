@@ -87,6 +87,7 @@ const navItems = [
   { icon: FileBarChart2, label: "Branch Reports", path: "/branch-reports" },
   { icon: Star, label: "Branch Grades", path: "/branch-grades", adminOnly: true },
   { icon: ShieldAlert, label: "Audit Visits", path: "/audit-visits", adminOnly: true },
+  { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements" },
 ];
 
 interface AppLayoutProps {
