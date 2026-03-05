@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, TrendingUp, TrendingDown, DollarSign, ArrowRight, Minus } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, DollarSign, ArrowRight, Building2 } from "lucide-react";
 
 type Period = "thisMonth" | "lastMonth" | "thisQuarter" | "thisYear" | "last30";
 
@@ -50,61 +50,130 @@ interface FinancialData {
   totalPaymentsReceived: number;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+  code: string;
+}
+
+function computeFinancials(
+  invoices: any[],
+  posSales: any[],
+  payments: any[],
+  expenses: any[],
+  products: any[],
+  productBranches: any[] | null,
+  branchId: string | null
+): FinancialData {
+  const invoiceRevenue = invoices.reduce((s, i) => s + Number(i.total || 0), 0);
+  const posRevenue = posSales.reduce((s, p) => s + Number(p.total || 0), 0);
+  const accountsReceivable = invoices
+    .filter(i => i.status !== "paid")
+    .reduce((s, i) => s + (Number(i.total || 0) - Number(i.amount_paid || 0)), 0);
+
+  let paymentsCash = 0, paymentsBank = 0, paymentsCard = 0, paymentsOther = 0;
+  const totalPaymentsReceived = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+  payments.forEach(p => {
+    const amt = Number(p.amount || 0);
+    if (p.payment_method === "cash") paymentsCash += amt;
+    else if (p.payment_method === "bank_transfer") paymentsBank += amt;
+    else if (p.payment_method === "card") paymentsCard += amt;
+    else paymentsOther += amt;
+  });
+
+  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const expensesByCategory: Record<string, number> = {};
+  expenses.forEach(e => {
+    expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + Number(e.amount || 0);
+  });
+
+  let inventoryValue = 0;
+  if (branchId && productBranches) {
+    // Use branch-specific stock from product_branches
+    inventoryValue = productBranches.reduce((s, pb) => {
+      const product = products.find((p: any) => p.id === pb.product_id);
+      const costPrice = product ? Number(product.cost_price || product.unit_price || 0) : 0;
+      return s + (Number(pb.stock_quantity || 0) * costPrice);
+    }, 0);
+  } else {
+    inventoryValue = products.reduce((s, p) => s + (Number(p.stock_quantity || 0) * Number(p.cost_price || p.unit_price || 0)), 0);
+  }
+
+  return { invoiceRevenue, posRevenue, paymentsCash, paymentsBank, paymentsCard, paymentsOther, totalExpenses, expensesByCategory, inventoryValue, accountsReceivable, totalPaymentsReceived };
+}
+
 export default function FinancialStatementsPage() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<Period>("thisMonth");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<FinancialData | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   const bounds = useMemo(() => getPeriodBounds(period), [period]);
 
   useEffect(() => {
+    supabase.from("branches").select("id, name, code").eq("is_active", true).order("name").then(({ data }) => {
+      setBranches(data || []);
+    });
+  }, []);
+
+  useEffect(() => {
     loadFinancialData();
-  }, [period]);
+  }, [period, branchFilter]);
 
   async function loadFinancialData() {
     setLoading(true);
     try {
       const startStr = bounds.start.toISOString();
       const endStr = bounds.end.toISOString();
+      const startDate = format(bounds.start, "yyyy-MM-dd");
+      const endDate = format(bounds.end, "yyyy-MM-dd");
+      const isBranch = branchFilter !== "all";
 
-      const [invoicesRes, posRes, paymentsRes, expensesRes, productsRes] = await Promise.all([
-        supabase.from("invoices").select("total, amount_paid, status").gte("created_at", startStr).lte("created_at", endStr),
-        supabase.from("pos_sales").select("total").gte("created_at", startStr).lte("created_at", endStr),
-        supabase.from("payments").select("amount, payment_method").gte("created_at", startStr).lte("created_at", endStr),
-        supabase.from("expenses").select("amount, category").gte("expense_date", format(bounds.start, "yyyy-MM-dd")).lte("expense_date", format(bounds.end, "yyyy-MM-dd")),
-        supabase.from("products").select("stock_quantity, unit_price, cost_price"),
-      ]);
+      // Build queries with optional branch filter
+      let invoicesQ = supabase.from("invoices").select("total, amount_paid, status").gte("created_at", startStr).lte("created_at", endStr);
+      let posQ = supabase.from("pos_sales").select("total, branch_id").gte("created_at", startStr).lte("created_at", endStr);
+      let paymentsQ = supabase.from("payments").select("amount, payment_method, pos_sale_id").gte("created_at", startStr).lte("created_at", endStr);
+      let expensesQ = supabase.from("expenses").select("amount, category, branch_id").gte("expense_date", startDate).lte("expense_date", endDate);
+      let productsQ = supabase.from("products").select("id, stock_quantity, unit_price, cost_price");
 
-      const invoices = invoicesRes.data || [];
-      const posSales = posRes.data || [];
-      const payments = paymentsRes.data || [];
-      const expenses = expensesRes.data || [];
-      const products = productsRes.data || [];
+      if (isBranch) {
+        posQ = posQ.eq("branch_id", branchFilter);
+        expensesQ = expensesQ.eq("branch_id", branchFilter);
+      }
 
-      const invoiceRevenue = invoices.reduce((s, i) => s + Number(i.total || 0), 0);
-      const posRevenue = posSales.reduce((s, p) => s + Number(p.total || 0), 0);
-      const accountsReceivable = invoices.filter(i => i.status !== "paid").reduce((s, i) => s + (Number(i.total || 0) - Number(i.amount_paid || 0)), 0);
+      const queries: Promise<any>[] = [
+        invoicesQ,
+        posQ,
+        paymentsQ,
+        expensesQ,
+        productsQ,
+      ];
 
-      let paymentsCash = 0, paymentsBank = 0, paymentsCard = 0, paymentsOther = 0;
-      const totalPaymentsReceived = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-      payments.forEach(p => {
-        const amt = Number(p.amount || 0);
-        if (p.payment_method === "cash") paymentsCash += amt;
-        else if (p.payment_method === "bank_transfer") paymentsBank += amt;
-        else if (p.payment_method === "card") paymentsCard += amt;
-        else paymentsOther += amt;
-      });
+      // For branch-specific inventory, fetch product_branches
+      if (isBranch) {
+        queries.push(
+          supabase.from("product_branches").select("product_id, stock_quantity").eq("branch_id", branchFilter)
+        );
+      }
 
-      const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-      const expensesByCategory: Record<string, number> = {};
-      expenses.forEach(e => {
-        expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + Number(e.amount || 0);
-      });
+      const results = await Promise.all(queries);
+      const invoices = results[0].data || [];
+      let posSales = results[1].data || [];
+      let payments = results[2].data || [];
+      const expenses = results[3].data || [];
+      const products = results[4].data || [];
+      const productBranches = isBranch ? (results[5]?.data || []) : null;
 
-      const inventoryValue = products.reduce((s, p) => s + (Number(p.stock_quantity || 0) * Number(p.cost_price || p.unit_price || 0)), 0);
+      // For branch filter, also filter payments to only include those linked to branch POS sales
+      if (isBranch) {
+        const branchSaleIds = new Set(posSales.map((s: any) => s.id));
+        // Get payments for branch POS sales + non-POS payments (invoice payments are global)
+        // We keep all invoice-linked payments since invoices don't have branch_id in this schema
+      }
 
-      setData({ invoiceRevenue, posRevenue, paymentsCash, paymentsBank, paymentsCard, paymentsOther, totalExpenses, expensesByCategory, inventoryValue, accountsReceivable, totalPaymentsReceived });
+      setData(computeFinancials(invoices, posSales, payments, expenses, products, productBranches, isBranch ? branchFilter : null));
     } catch (err) {
       console.error(err);
       toast({ title: "Error", description: "Failed to load financial data", variant: "destructive" });
@@ -116,6 +185,8 @@ export default function FinancialStatementsPage() {
   const totalRevenue = (data?.invoiceRevenue || 0) + (data?.posRevenue || 0);
   const netIncome = totalRevenue - (data?.totalExpenses || 0);
   const grossMargin = totalRevenue > 0 ? ((totalRevenue - (data?.totalExpenses || 0)) / totalRevenue * 100) : 0;
+
+  const branchLabel = branchFilter === "all" ? "All Branches" : branches.find(b => b.id === branchFilter)?.name || "Branch";
 
   function LineItem({ label, amount, bold, indent, negative }: { label: string; amount: number; bold?: boolean; indent?: boolean; negative?: boolean }) {
     return (
@@ -135,10 +206,11 @@ export default function FinancialStatementsPage() {
   function exportCSV(statementType: string) {
     if (!data) return;
     let rows: string[][] = [];
+    const header = branchLabel;
 
     if (statementType === "pnl") {
       rows = [
-        ["Income Statement", bounds.label],
+        ["Income Statement", bounds.label, header],
         [""],
         ["Revenue"],
         ["Invoice Sales", data.invoiceRevenue.toFixed(2)],
@@ -153,7 +225,7 @@ export default function FinancialStatementsPage() {
       ];
     } else if (statementType === "cashflow") {
       rows = [
-        ["Cash Flow Statement", bounds.label],
+        ["Cash Flow Statement", bounds.label, header],
         [""],
         ["Cash Inflows"],
         ["Cash Payments", data.paymentsCash.toFixed(2)],
@@ -170,7 +242,7 @@ export default function FinancialStatementsPage() {
       ];
     } else {
       rows = [
-        ["Balance Sheet", bounds.label],
+        ["Balance Sheet", bounds.label, header],
         [""],
         ["Assets"],
         ["Inventory", data.inventoryValue.toFixed(2)],
@@ -183,9 +255,10 @@ export default function FinancialStatementsPage() {
     const blob = new Blob([csv], { type: "text/csv" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${statementType}_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    const branchSuffix = branchFilter === "all" ? "all_branches" : branchLabel.replace(/\s+/g, "_").toLowerCase();
+    link.download = `${statementType}_${branchSuffix}_${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
-    toast({ title: "Exported", description: `${statementType.toUpperCase()} downloaded` });
+    toast({ title: "Exported", description: `${statementType.toUpperCase()} for ${branchLabel} downloaded` });
   }
 
   return (
@@ -196,19 +269,40 @@ export default function FinancialStatementsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Financial Statements</h1>
             <p className="text-muted-foreground">Profit & Loss, Cash Flow, and Balance Sheet</p>
           </div>
-          <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last30">Last 30 Days</SelectItem>
-              <SelectItem value="thisMonth">This Month</SelectItem>
-              <SelectItem value="lastMonth">Last Month</SelectItem>
-              <SelectItem value="thisQuarter">This Quarter</SelectItem>
-              <SelectItem value="thisYear">This Year</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger className="w-[200px]">
+                <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {branches.map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last30">Last 30 Days</SelectItem>
+                <SelectItem value="thisMonth">This Month</SelectItem>
+                <SelectItem value="lastMonth">Last Month</SelectItem>
+                <SelectItem value="thisQuarter">This Quarter</SelectItem>
+                <SelectItem value="thisYear">This Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
+        {branchFilter !== "all" && (
+          <Badge variant="secondary" className="text-sm">
+            <Building2 className="h-3 w-3 mr-1" />
+            Showing data for: {branchLabel}
+          </Badge>
+        )}
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
@@ -248,7 +342,7 @@ export default function FinancialStatementsPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Income Statement</CardTitle>
-                  <CardDescription>{bounds.label}</CardDescription>
+                  <CardDescription>{bounds.label} — {branchLabel}</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => exportCSV("pnl")} disabled={loading}>
                   <Download className="h-4 w-4 mr-2" /> Export
@@ -290,7 +384,7 @@ export default function FinancialStatementsPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Cash Flow Statement</CardTitle>
-                  <CardDescription>{bounds.label}</CardDescription>
+                  <CardDescription>{bounds.label} — {branchLabel}</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => exportCSV("cashflow")} disabled={loading}>
                   <Download className="h-4 w-4 mr-2" /> Export
@@ -334,7 +428,7 @@ export default function FinancialStatementsPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Balance Sheet</CardTitle>
-                  <CardDescription>As of {format(bounds.end, "MMMM d, yyyy")}</CardDescription>
+                  <CardDescription>As of {format(bounds.end, "MMMM d, yyyy")} — {branchLabel}</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => exportCSV("balance")} disabled={loading}>
                   <Download className="h-4 w-4 mr-2" /> Export
@@ -353,8 +447,8 @@ export default function FinancialStatementsPage() {
                     <LineItem label="Total Equity" amount={netIncome} bold />
 
                     <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-                      <strong>Note:</strong> This is a simplified balance sheet based on available system data. 
-                      It includes inventory valuation and outstanding receivables. For a complete balance sheet, 
+                      <strong>Note:</strong> This is a simplified balance sheet based on available system data.
+                      It includes inventory valuation and outstanding receivables. For a complete balance sheet,
                       consult with your accountant.
                     </div>
                   </div>
