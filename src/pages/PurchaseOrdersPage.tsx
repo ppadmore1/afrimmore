@@ -325,10 +325,17 @@ export default function PurchaseOrdersPage() {
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
+                            <DropdownMenuContent align="end" className="bg-popover">
                             <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}`)}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteId(order.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -341,6 +348,27 @@ export default function PurchaseOrdersPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this purchase order and all its items. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteId && deleteOrder(deleteId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
