@@ -19,6 +19,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@ericblade/quagga2": [
+        "./src/types/quagga2.d.ts"
       ]
     },
     "skipLibCheck": true,
@@ -30,6 +33,6 @@
     "src"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules/@ericblade/quagga2/type-definitions"
   ]
 }
