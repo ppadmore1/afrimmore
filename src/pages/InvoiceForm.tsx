@@ -411,7 +411,7 @@ export default function InvoiceForm() {
                     <SelectValue placeholder="Select quotation" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {quotations.map((q) => (
                       <SelectItem key={q.id} value={q.id}>
                         {q.quotation_number} - {q.customer_name}
