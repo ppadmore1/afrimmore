@@ -6,6 +6,7 @@ import {
   Plus,
   Search,
   Eye,
+  Trash2,
   Truck,
   Package,
   Clock,
@@ -40,6 +41,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -70,6 +81,7 @@ export default function PurchaseOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -100,7 +112,23 @@ export default function PurchaseOrdersPage() {
       toast({ title: "Failed to load purchase orders", variant: "destructive" });
     } finally {
       setLoading(false);
+  }
+
+  async function deleteOrder(id: string) {
+    try {
+      // Delete items first, then the order
+      await supabase.from("purchase_order_items").delete().eq("purchase_order_id", id);
+      const { error } = await supabase.from("purchase_orders").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Purchase order deleted" });
+      setOrders(orders.filter((o) => o.id !== id));
+    } catch (err) {
+      console.error("Error deleting purchase order:", err);
+      toast({ title: "Failed to delete purchase order", variant: "destructive" });
+    } finally {
+      setDeleteId(null);
     }
+  }
   }
 
   function getStatusBadge(status: POStatus) {
@@ -297,10 +325,17 @@ export default function PurchaseOrdersPage() {
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
+                            <DropdownMenuContent align="end" className="bg-popover">
                             <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}`)}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteId(order.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -313,6 +348,27 @@ export default function PurchaseOrdersPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this purchase order and all its items. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteId && deleteOrder(deleteId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

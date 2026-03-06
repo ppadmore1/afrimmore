@@ -98,7 +98,7 @@ export default function InvoiceForm() {
             setNotes(invoice.notes || "");
             setPaymentTerms(invoice.payment_terms || "Net 30");
             setProjectCode(invoice.project_code || "");
-            setSelectedQuotationId(invoice.quotation_id || "");
+            setSelectedQuotationId(invoice.quotation_id || "none");
             
             // Map invoice items
             if (invoice.items) {
@@ -241,7 +241,7 @@ export default function InvoiceForm() {
         notes: notes || null,
         payment_terms: paymentTerms || null,
         project_code: projectCode || null,
-        quotation_id: selectedQuotationId || null,
+        quotation_id: selectedQuotationId && selectedQuotationId !== "none" ? selectedQuotationId : null,
         created_by: user?.id || null,
       };
 
@@ -411,7 +411,7 @@ export default function InvoiceForm() {
                     <SelectValue placeholder="Select quotation" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {quotations.map((q) => (
                       <SelectItem key={q.id} value={q.id}>
                         {q.quotation_number} - {q.customer_name}
