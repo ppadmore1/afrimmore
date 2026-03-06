@@ -6,6 +6,7 @@ import {
   Plus,
   Search,
   Eye,
+  Trash2,
   Truck,
   Package,
   Clock,
