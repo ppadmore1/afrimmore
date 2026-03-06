@@ -112,7 +112,23 @@ export default function PurchaseOrdersPage() {
       toast({ title: "Failed to load purchase orders", variant: "destructive" });
     } finally {
       setLoading(false);
+  }
+
+  async function deleteOrder(id: string) {
+    try {
+      // Delete items first, then the order
+      await supabase.from("purchase_order_items").delete().eq("purchase_order_id", id);
+      const { error } = await supabase.from("purchase_orders").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Purchase order deleted" });
+      setOrders(orders.filter((o) => o.id !== id));
+    } catch (err) {
+      console.error("Error deleting purchase order:", err);
+      toast({ title: "Failed to delete purchase order", variant: "destructive" });
+    } finally {
+      setDeleteId(null);
     }
+  }
   }
 
   function getStatusBadge(status: POStatus) {
