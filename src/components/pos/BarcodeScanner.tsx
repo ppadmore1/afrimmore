@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+// @ts-ignore - quagga2 type definitions have TS1540 error
 import Quagga from "@ericblade/quagga2";
 import { Camera, X, SwitchCamera } from "lucide-react";
 import { Button } from "@/components/ui/button";
