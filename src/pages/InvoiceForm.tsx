@@ -98,7 +98,7 @@ export default function InvoiceForm() {
             setNotes(invoice.notes || "");
             setPaymentTerms(invoice.payment_terms || "Net 30");
             setProjectCode(invoice.project_code || "");
-            setSelectedQuotationId(invoice.quotation_id || "");
+            setSelectedQuotationId(invoice.quotation_id || "none");
             
             // Map invoice items
             if (invoice.items) {
