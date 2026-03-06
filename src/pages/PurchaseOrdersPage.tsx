@@ -112,6 +112,7 @@ export default function PurchaseOrdersPage() {
       toast({ title: "Failed to load purchase orders", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
   }
 
   async function deleteOrder(id: string) {
@@ -128,7 +129,6 @@ export default function PurchaseOrdersPage() {
     } finally {
       setDeleteId(null);
     }
-  }
   }
 
   function getStatusBadge(status: POStatus) {
