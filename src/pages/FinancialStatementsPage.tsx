@@ -143,18 +143,18 @@ export default function FinancialStatementsPage() {
         expensesQ = expensesQ.eq("branch_id", branchFilter);
       }
 
-      const queries = [
-        invoicesQ.then(),
-        posQ.then(),
-        paymentsQ.then(),
-        expensesQ.then(),
-        productsQ.then(),
+      const queries: Promise<any>[] = [
+        invoicesQ.then() as Promise<any>,
+        posQ.then() as Promise<any>,
+        paymentsQ.then() as Promise<any>,
+        expensesQ.then() as Promise<any>,
+        productsQ.then() as Promise<any>,
       ];
 
       // For branch-specific inventory, fetch product_branches
       if (isBranch) {
         queries.push(
-          supabase.from("product_branches").select("product_id, stock_quantity").eq("branch_id", branchFilter).then()
+          supabase.from("product_branches").select("product_id, stock_quantity").eq("branch_id", branchFilter).then() as Promise<any>
         );
       }
 
