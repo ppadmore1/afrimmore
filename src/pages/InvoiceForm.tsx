@@ -241,7 +241,7 @@ export default function InvoiceForm() {
         notes: notes || null,
         payment_terms: paymentTerms || null,
         project_code: projectCode || null,
-        quotation_id: selectedQuotationId || null,
+        quotation_id: selectedQuotationId && selectedQuotationId !== "none" ? selectedQuotationId : null,
         created_by: user?.id || null,
       };
 
