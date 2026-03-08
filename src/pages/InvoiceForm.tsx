@@ -343,7 +343,13 @@ export default function InvoiceForm() {
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label>Invoice Number</Label>
-                <Input value={invoiceNumber} disabled className="font-mono" />
+                <Input 
+                  value={invoiceNumber} 
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className="font-mono" 
+                  placeholder="Auto-generated or enter custom number"
+                />
+                <p className="text-xs text-muted-foreground">Auto-generated. Edit to use a custom number.</p>
               </div>
 
               <div className="space-y-2">
