@@ -74,6 +74,8 @@ interface NavItem {
   label: string;
   path: string;
   adminOnly?: boolean;
+  /** Minimum role required: 'cashier' < 'staff' < 'admin'. Defaults to 'staff'. */
+  minRole?: RoleAccess;
 }
 
 interface NavGroup {
@@ -87,85 +89,93 @@ const navGroups: NavGroup[] = [
     label: "Main",
     defaultOpen: true,
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-      { icon: ShoppingCart, label: "POS", path: "/pos" },
-      { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/", minRole: "cashier" },
+      { icon: ShoppingCart, label: "POS", path: "/pos", minRole: "cashier" },
+      { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up", minRole: "cashier" },
     ],
   },
   {
     label: "Products & Inventory",
     items: [
-      { icon: Tag, label: "Products", path: "/products" },
-      { icon: Boxes, label: "Inventory", path: "/inventory" },
-      { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
-      { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder" },
-      { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation" },
-      { icon: Layers, label: "Batch Tracking", path: "/batch-tracking" },
+      { icon: Tag, label: "Products", path: "/products", minRole: "cashier" },
+      { icon: Boxes, label: "Inventory", path: "/inventory", minRole: "staff" },
+      { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock", minRole: "staff" },
+      { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder", minRole: "staff" },
+      { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation", minRole: "admin" },
+      { icon: Layers, label: "Batch Tracking", path: "/batch-tracking", minRole: "staff" },
     ],
   },
   {
     label: "Purchasing",
     items: [
-      { icon: Truck, label: "Suppliers", path: "/suppliers" },
-      { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders" },
+      { icon: Truck, label: "Suppliers", path: "/suppliers", minRole: "staff" },
+      { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders", minRole: "staff" },
     ],
   },
   {
     label: "Sales & Documents",
     items: [
-      { icon: FileText, label: "Invoices", path: "/invoices" },
-      { icon: FileCheck, label: "Quotations", path: "/quotations" },
-      { icon: CreditCard, label: "Receipts", path: "/receipts" },
-      { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
-      { icon: Users, label: "Customers", path: "/customers" },
-      { icon: FileText, label: "Credit Notes", path: "/credit-notes" },
-      { icon: RefreshCw, label: "Recurring Invoices", path: "/recurring-invoices" },
+      { icon: FileText, label: "Invoices", path: "/invoices", minRole: "staff" },
+      { icon: FileCheck, label: "Quotations", path: "/quotations", minRole: "staff" },
+      { icon: CreditCard, label: "Receipts", path: "/receipts", minRole: "staff" },
+      { icon: Truck, label: "Delivery Notes", path: "/delivery-notes", minRole: "staff" },
+      { icon: Users, label: "Customers", path: "/customers", minRole: "staff" },
+      { icon: FileText, label: "Credit Notes", path: "/credit-notes", minRole: "staff" },
+      { icon: RefreshCw, label: "Recurring Invoices", path: "/recurring-invoices", minRole: "admin" },
     ],
   },
   {
     label: "Finance",
     items: [
-      { icon: CreditCard, label: "Payments", path: "/payments" },
-      { icon: TrendingDown, label: "Expenses", path: "/expenses" },
-      { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements" },
-      { icon: Clock, label: "Aging Reports", path: "/aging-reports" },
-      { icon: Landmark, label: "Bank Reconciliation", path: "/bank-reconciliation" },
-      { icon: Globe, label: "Multi-Currency", path: "/multi-currency" },
-      { icon: Calculator, label: "Tax Management", path: "/tax-management" },
+      { icon: CreditCard, label: "Payments", path: "/payments", minRole: "staff" },
+      { icon: TrendingDown, label: "Expenses", path: "/expenses", minRole: "staff" },
+      { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements", minRole: "admin" },
+      { icon: Clock, label: "Aging Reports", path: "/aging-reports", minRole: "admin" },
+      { icon: Landmark, label: "Bank Reconciliation", path: "/bank-reconciliation", minRole: "admin" },
+      { icon: Globe, label: "Multi-Currency", path: "/multi-currency", minRole: "admin" },
+      { icon: Calculator, label: "Tax Management", path: "/tax-management", minRole: "admin" },
     ],
   },
   {
     label: "Reports",
     items: [
-      { icon: BarChart3, label: "Reports", path: "/reports" },
-      { icon: FileBarChart2, label: "Branch Reports", path: "/branch-reports" },
-      { icon: FileBarChart, label: "Payroll Reports", path: "/payroll-reports", adminOnly: true },
+      { icon: BarChart3, label: "Reports", path: "/reports", minRole: "staff" },
+      { icon: FileBarChart2, label: "Branch Reports", path: "/branch-reports", minRole: "staff" },
+      { icon: FileBarChart, label: "Payroll Reports", path: "/payroll-reports", minRole: "admin" },
     ],
   },
   {
     label: "HR & Time",
     items: [
-      { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
+      { icon: Clock, label: "Time Tracking", path: "/time-tracking", minRole: "cashier" },
     ],
   },
   {
     label: "Administration",
     items: [
-      { icon: Building2, label: "Branches", path: "/branches", adminOnly: true },
-      { icon: BarChart3, label: "Admin Dashboard", path: "/admin", adminOnly: true },
-      { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
-      { icon: Users, label: "User Management", path: "/users", adminOnly: true },
-      { icon: Percent, label: "Discount Codes", path: "/discounts", adminOnly: true },
-      { icon: History, label: "Activity Logs", path: "/activity-logs", adminOnly: true },
-      { icon: FormInput, label: "Custom Fields", path: "/custom-fields", adminOnly: true },
-      { icon: LayoutTemplate, label: "Document Templates", path: "/document-templates", adminOnly: true },
-      { icon: ShieldCheck, label: "Approval Thresholds", path: "/approval-thresholds", adminOnly: true },
-      { icon: Star, label: "Branch Grades", path: "/branch-grades", adminOnly: true },
-      { icon: ShieldAlert, label: "Audit Visits", path: "/audit-visits", adminOnly: true },
+      { icon: Building2, label: "Branches", path: "/branches", minRole: "admin" },
+      { icon: BarChart3, label: "Admin Dashboard", path: "/admin", minRole: "admin" },
+      { icon: Settings, label: "Settings", path: "/settings", minRole: "admin" },
+      { icon: Users, label: "User Management", path: "/users", minRole: "admin" },
+      { icon: Percent, label: "Discount Codes", path: "/discounts", minRole: "admin" },
+      { icon: History, label: "Activity Logs", path: "/activity-logs", minRole: "admin" },
+      { icon: FormInput, label: "Custom Fields", path: "/custom-fields", minRole: "admin" },
+      { icon: LayoutTemplate, label: "Document Templates", path: "/document-templates", minRole: "admin" },
+      { icon: ShieldCheck, label: "Approval Thresholds", path: "/approval-thresholds", minRole: "admin" },
+      { icon: Star, label: "Branch Grades", path: "/branch-grades", minRole: "admin" },
+      { icon: ShieldAlert, label: "Audit Visits", path: "/audit-visits", minRole: "admin" },
     ],
   },
 ];
 
+// Role hierarchy: admin > staff > cashier
+const ROLE_LEVEL: Record<string, number> = { cashier: 1, staff: 2, admin: 3 };
+
+function hasMinRole(userRoles: { isAdmin: boolean; isStaff: boolean; isCashier: boolean }, minRole: RoleAccess): boolean {
+  if (minRole === 'all') return true;
+  const userLevel = userRoles.isAdmin ? 3 : userRoles.isStaff ? 2 : userRoles.isCashier ? 1 : 0;
+  return userLevel >= (ROLE_LEVEL[minRole] || 0);
+}
 interface AppLayoutProps {
   children: React.ReactNode;
 }
