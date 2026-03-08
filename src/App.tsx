@@ -51,7 +51,9 @@ import BranchReportsPage from "./pages/BranchReportsPage";
 import BranchGradesPage from "./pages/BranchGradesPage";
 import AuditVisitsPage from "./pages/AuditVisitsPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
-
+import AgingReportsPage from "./pages/AgingReportsPage";
+import CreditNotesPage from "./pages/CreditNotesPage";
+import RecurringInvoicesPage from "./pages/RecurringInvoicesPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -116,6 +118,9 @@ const App = () => (
                <Route path="/branch-grades" element={<ProtectedRoute><BranchGradesPage /></ProtectedRoute>} />
                <Route path="/audit-visits" element={<ProtectedRoute><AuditVisitsPage /></ProtectedRoute>} />
                <Route path="/financial-statements" element={<ProtectedRoute><FinancialStatementsPage /></ProtectedRoute>} />
+               <Route path="/aging-reports" element={<ProtectedRoute><AgingReportsPage /></ProtectedRoute>} />
+               <Route path="/credit-notes" element={<ProtectedRoute><CreditNotesPage /></ProtectedRoute>} />
+               <Route path="/recurring-invoices" element={<ProtectedRoute><RecurringInvoicesPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

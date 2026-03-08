@@ -34,6 +34,7 @@ import {
   ShieldAlert,
   Star,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,8 @@ const navGroups: NavGroup[] = [
       { icon: CreditCard, label: "Receipts", path: "/receipts" },
       { icon: Truck, label: "Delivery Notes", path: "/delivery-notes" },
       { icon: Users, label: "Customers", path: "/customers" },
+      { icon: FileText, label: "Credit Notes", path: "/credit-notes" },
+      { icon: RefreshCw, label: "Recurring Invoices", path: "/recurring-invoices" },
     ],
   },
   {
@@ -114,6 +117,7 @@ const navGroups: NavGroup[] = [
       { icon: CreditCard, label: "Payments", path: "/payments" },
       { icon: TrendingDown, label: "Expenses", path: "/expenses" },
       { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements" },
+      { icon: Clock, label: "Aging Reports", path: "/aging-reports" },
     ],
   },
   {
