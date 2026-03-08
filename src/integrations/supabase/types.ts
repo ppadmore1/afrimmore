@@ -196,6 +196,98 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          currency_code: string
+          current_balance: number
+          id: string
+          is_active: boolean
+          name: string
+          opening_balance: number
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          currency_code?: string
+          current_balance?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          opening_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          currency_code?: string
+          current_balance?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          opening_balance?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bank_transactions: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          created_at: string
+          description: string
+          id: string
+          imported_at: string | null
+          matched_entity_id: string | null
+          matched_entity_type: string | null
+          reference: string | null
+          status: string
+          transaction_date: string
+          type: string
+        }
+        Insert: {
+          amount?: number
+          bank_account_id: string
+          created_at?: string
+          description: string
+          id?: string
+          imported_at?: string | null
+          matched_entity_id?: string | null
+          matched_entity_type?: string | null
+          reference?: string | null
+          status?: string
+          transaction_date?: string
+          type?: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          imported_at?: string | null
+          matched_entity_id?: string | null
+          matched_entity_type?: string | null
+          reference?: string | null
+          status?: string
+          transaction_date?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_grades: {
         Row: {
           attendance_score: number | null
@@ -581,6 +673,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_base: boolean
+          name: string
+          symbol: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_base?: boolean
+          name: string
+          symbol?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_base?: boolean
+          name?: string
+          symbol?: string
+        }
+        Relationships: []
       }
       custom_field_definitions: {
         Row: {
@@ -1108,6 +1230,33 @@ export type Database = {
           },
         ]
       }
+      exchange_rates: {
+        Row: {
+          created_at: string
+          effective_date: string
+          from_currency: string
+          id: string
+          rate: number
+          to_currency: string
+        }
+        Insert: {
+          created_at?: string
+          effective_date?: string
+          from_currency: string
+          id?: string
+          rate?: number
+          to_currency: string
+        }
+        Update: {
+          created_at?: string
+          effective_date?: string
+          from_currency?: string
+          id?: string
+          rate?: number
+          to_currency?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
@@ -1240,6 +1389,47 @@ export type Database = {
             columns: ["purchase_order_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_valuations: {
+        Row: {
+          calculated_at: string
+          created_at: string
+          id: string
+          product_id: string
+          total_quantity: number
+          total_value: number
+          unit_cost: number
+          valuation_method: string
+        }
+        Insert: {
+          calculated_at?: string
+          created_at?: string
+          id?: string
+          product_id: string
+          total_quantity?: number
+          total_value?: number
+          unit_cost?: number
+          valuation_method?: string
+        }
+        Update: {
+          calculated_at?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          total_quantity?: number
+          total_value?: number
+          unit_cost?: number
+          valuation_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_valuations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -2405,6 +2595,84 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_rates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          rate: number
+          tax_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          rate?: number
+          tax_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          rate?: number
+          tax_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_returns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filed_at: string | null
+          id: string
+          net_tax: number
+          period_end: string
+          period_start: string
+          status: string
+          tax_type: string
+          total_input_tax: number
+          total_output_tax: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filed_at?: string | null
+          id?: string
+          net_tax?: number
+          period_end: string
+          period_start: string
+          status?: string
+          tax_type?: string
+          total_input_tax?: number
+          total_output_tax?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filed_at?: string | null
+          id?: string
+          net_tax?: number
+          period_end?: string
+          period_start?: string
+          status?: string
+          tax_type?: string
+          total_input_tax?: number
+          total_output_tax?: number
           updated_at?: string
         }
         Relationships: []
