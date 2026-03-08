@@ -62,6 +62,10 @@ import BatchTrackingPage from "./pages/BatchTrackingPage";
 import DailyCashUpPage from "./pages/DailyCashUpPage";
 import CustomerStatementsPage from "./pages/CustomerStatementsPage";
 import VendorBillsPage from "./pages/VendorBillsPage";
+import StockTransfersPage from "./pages/StockTransfersPage";
+import InventoryAdjustmentsPage from "./pages/InventoryAdjustmentsPage";
+import BundleItemsPage from "./pages/BundleItemsPage";
+import WarehouseLocationsPage from "./pages/WarehouseLocationsPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -137,6 +141,10 @@ const App = () => (
                <Route path="/daily-cash-up" element={<ProtectedRoute><DailyCashUpPage /></ProtectedRoute>} />
                <Route path="/customer-statements" element={<ProtectedRoute><CustomerStatementsPage /></ProtectedRoute>} />
                <Route path="/vendor-bills" element={<ProtectedRoute><VendorBillsPage /></ProtectedRoute>} />
+               <Route path="/stock-transfers" element={<ProtectedRoute><StockTransfersPage /></ProtectedRoute>} />
+               <Route path="/inventory-adjustments" element={<ProtectedRoute><InventoryAdjustmentsPage /></ProtectedRoute>} />
+               <Route path="/bundle-items" element={<ProtectedRoute><BundleItemsPage /></ProtectedRoute>} />
+               <Route path="/warehouse-locations" element={<ProtectedRoute><WarehouseLocationsPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
