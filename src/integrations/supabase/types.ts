@@ -2997,21 +2997,38 @@ export type Database = {
         }
         Returns: string
       }
-      process_pos_sale: {
-        Args: {
-          p_amount_paid: number
-          p_created_by: string
-          p_customer_id: string
-          p_customer_name: string
-          p_items: Json
-          p_payment_method: Database["public"]["Enums"]["payment_method"]
-        }
-        Returns: {
-          change_amount: number
-          sale_id: string
-          sale_number: string
-        }[]
-      }
+      process_pos_sale:
+        | {
+            Args: {
+              p_amount_paid: number
+              p_created_by: string
+              p_customer_id: string
+              p_customer_name: string
+              p_items: Json
+              p_payment_method: Database["public"]["Enums"]["payment_method"]
+            }
+            Returns: {
+              change_amount: number
+              sale_id: string
+              sale_number: string
+            }[]
+          }
+        | {
+            Args: {
+              p_amount_paid: number
+              p_created_by: string
+              p_customer_id: string
+              p_customer_name: string
+              p_items: Json
+              p_payment_method: Database["public"]["Enums"]["payment_method"]
+              p_shift_id?: string
+            }
+            Returns: {
+              change_amount: number
+              sale_id: string
+              sale_number: string
+            }[]
+          }
       verify_manager_pin: {
         Args: { p_pin: string }
         Returns: {
