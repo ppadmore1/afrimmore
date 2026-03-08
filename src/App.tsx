@@ -66,6 +66,9 @@ import StockTransfersPage from "./pages/StockTransfersPage";
 import InventoryAdjustmentsPage from "./pages/InventoryAdjustmentsPage";
 import BundleItemsPage from "./pages/BundleItemsPage";
 import WarehouseLocationsPage from "./pages/WarehouseLocationsPage";
+import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
+import JournalEntriesPage from "./pages/JournalEntriesPage";
+import TrialBalancePage from "./pages/TrialBalancePage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -145,6 +148,9 @@ const App = () => (
                <Route path="/inventory-adjustments" element={<ProtectedRoute><InventoryAdjustmentsPage /></ProtectedRoute>} />
                <Route path="/bundle-items" element={<ProtectedRoute><BundleItemsPage /></ProtectedRoute>} />
                <Route path="/warehouse-locations" element={<ProtectedRoute><WarehouseLocationsPage /></ProtectedRoute>} />
+               <Route path="/chart-of-accounts" element={<ProtectedRoute><ChartOfAccountsPage /></ProtectedRoute>} />
+               <Route path="/journal-entries" element={<ProtectedRoute><JournalEntriesPage /></ProtectedRoute>} />
+               <Route path="/trial-balance" element={<ProtectedRoute><TrialBalancePage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
