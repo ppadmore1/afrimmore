@@ -90,6 +90,7 @@ const navGroups: NavGroup[] = [
       { icon: Boxes, label: "Inventory", path: "/inventory" },
       { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
       { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder" },
+      { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation" },
     ],
   },
   {
@@ -118,6 +119,9 @@ const navGroups: NavGroup[] = [
       { icon: TrendingDown, label: "Expenses", path: "/expenses" },
       { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements" },
       { icon: Clock, label: "Aging Reports", path: "/aging-reports" },
+      { icon: Landmark, label: "Bank Reconciliation", path: "/bank-reconciliation" },
+      { icon: Globe, label: "Multi-Currency", path: "/multi-currency" },
+      { icon: Calculator, label: "Tax Management", path: "/tax-management" },
     ],
   },
   {
