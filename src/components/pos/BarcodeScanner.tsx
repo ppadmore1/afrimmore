@@ -20,19 +20,43 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
   const scannerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializedRef = useRef(false);
+  const detectedHandlerRef = useRef<((result: any) => void) | null>(null);
 
   const stopScanner = useCallback(() => {
-    if (isInitialized) {
-      Quagga.stop();
-      setIsInitialized(false);
+    // Remove the detected handler first
+    if (detectedHandlerRef.current) {
+      Quagga.offDetected(detectedHandlerRef.current);
+      detectedHandlerRef.current = null;
     }
-  }, [isInitialized]);
+    if (isInitializedRef.current) {
+      try {
+        Quagga.stop();
+      } catch (e) {
+        console.warn("Quagga stop error:", e);
+      }
+      isInitializedRef.current = false;
+    }
+  }, []);
 
   const initScanner = useCallback(() => {
     if (!scannerRef.current || !isOpen) return;
 
+    // Always clean up before reinitializing
+    stopScanner();
     setError(null);
+
+    // Clear any leftover video elements from previous sessions
+    const existingVideos = scannerRef.current.querySelectorAll("video");
+    existingVideos.forEach((v) => {
+      const stream = v.srcObject as MediaStream;
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+      v.remove();
+    });
+    const existingCanvases = scannerRef.current.querySelectorAll("canvas");
+    existingCanvases.forEach((c) => c.remove());
 
     Quagga.init(
       {
@@ -62,43 +86,50 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
         },
         locate: true,
       },
-      (err) => {
+      (err: any) => {
         if (err) {
           console.error("Quagga init error:", err);
           setError("Could not access camera. Please allow camera permissions.");
           return;
         }
         Quagga.start();
-        setIsInitialized(true);
+        isInitializedRef.current = true;
       }
     );
 
-    Quagga.onDetected((result) => {
+    // Create a named handler so we can remove it later
+    const handleDetected = (result: any) => {
       if (result.codeResult.code) {
         const code = result.codeResult.code;
         // Play a beep sound for feedback
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 1000;
-        oscillator.type = "sine";
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.value = 1000;
+          oscillator.type = "sine";
+          gainNode.gain.value = 0.3;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (e) {
+          // Audio feedback is optional
+        }
 
         stopScanner();
         onScan(code);
         onClose();
       }
-    });
+    };
+
+    detectedHandlerRef.current = handleDetected;
+    Quagga.onDetected(handleDetected);
   }, [facingMode, isOpen, onScan, onClose, stopScanner]);
 
   useEffect(() => {
     if (isOpen) {
-      // Small delay to ensure the dialog is mounted
-      const timer = setTimeout(initScanner, 100);
+      const timer = setTimeout(initScanner, 300);
       return () => {
         clearTimeout(timer);
         stopScanner();
@@ -113,15 +144,16 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
+  // Reinit when facingMode changes
   useEffect(() => {
-    if (isOpen && !isInitialized) {
-      const timer = setTimeout(initScanner, 100);
+    if (isOpen && !isInitializedRef.current) {
+      const timer = setTimeout(initScanner, 300);
       return () => clearTimeout(timer);
     }
-  }, [facingMode, isOpen, isInitialized, initScanner]);
+  }, [facingMode, isOpen, initScanner]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { stopScanner(); onClose(); } }}>
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="flex items-center gap-2">
