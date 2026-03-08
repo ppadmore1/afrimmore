@@ -51,7 +51,7 @@ export default function AgingReportsPage() {
     try {
       const [invoicesRes, poRes] = await Promise.all([
         supabase.from("invoices").select("*").in("status", ["pending", "approved", "draft"]),
-        supabase.from("purchase_orders").select("*, suppliers:supplier_id(name)").in("status", ["sent", "draft", "partial"]),
+        supabase.from("purchase_orders").select("*, suppliers:supplier_id(name)").in("status", ["draft", "confirmed", "shipped"]),
       ]);
 
       const today = new Date();
