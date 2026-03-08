@@ -613,6 +613,9 @@ export default function POSPage() {
               </div>
             )}
 
+            {/* Shift Manager */}
+            <ShiftManager onShiftChange={setActiveShiftId} />
+
             <div className="flex-1" />
 
             {/* Pending Sales */}
