@@ -46,6 +46,9 @@ import {
   MapPin,
   PackageCheck,
   ClipboardCheck,
+  BookOpen,
+  FileSpreadsheet,
+  ScaleIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -139,6 +142,9 @@ const navGroups: NavGroup[] = [
   {
     label: "Finance",
     items: [
+      { icon: BookOpen, label: "Chart of Accounts", path: "/chart-of-accounts", minRole: "admin" },
+      { icon: FileSpreadsheet, label: "Journal Entries", path: "/journal-entries", minRole: "staff" },
+      { icon: ScaleIcon, label: "Trial Balance", path: "/trial-balance", minRole: "admin" },
       { icon: CreditCard, label: "Payments", path: "/payments", minRole: "staff" },
       { icon: TrendingDown, label: "Expenses", path: "/expenses", minRole: "staff" },
       { icon: FileBarChart, label: "Financial Statements", path: "/financial-statements", minRole: "admin" },

@@ -66,6 +66,9 @@ import StockTransfersPage from "./pages/StockTransfersPage";
 import InventoryAdjustmentsPage from "./pages/InventoryAdjustmentsPage";
 import BundleItemsPage from "./pages/BundleItemsPage";
 import WarehouseLocationsPage from "./pages/WarehouseLocationsPage";
+import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
+import JournalEntriesPage from "./pages/JournalEntriesPage";
+import TrialBalancePage from "./pages/TrialBalancePage";
 const queryClient = new QueryClient();
 
 const App = () => (
