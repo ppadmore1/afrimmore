@@ -2985,6 +2985,189 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_bill_items: {
+        Row: {
+          bill_id: string
+          created_at: string
+          description: string
+          id: string
+          product_id: string | null
+          quantity: number
+          tax_rate: number | null
+          total: number
+          unit_cost: number
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string
+          description: string
+          id?: string
+          product_id?: string | null
+          quantity?: number
+          tax_rate?: number | null
+          total?: number
+          unit_cost?: number
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          product_id?: string | null
+          quantity?: number
+          tax_rate?: number | null
+          total?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_bill_items_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bill_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_bill_payments: {
+        Row: {
+          amount: number
+          bill_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          bill_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_bills: {
+        Row: {
+          amount_paid: number
+          bill_date: string
+          bill_number: string
+          branch_id: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          payment_method: string | null
+          purchase_order_id: string | null
+          reference: string | null
+          status: string
+          subtotal: number
+          supplier_id: string | null
+          supplier_name: string
+          tax_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number
+          bill_date?: string
+          bill_number: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          purchase_order_id?: string | null
+          reference?: string | null
+          status?: string
+          subtotal?: number
+          supplier_id?: string | null
+          supplier_name: string
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          bill_date?: string
+          bill_number?: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          purchase_order_id?: string | null
+          reference?: string | null
+          status?: string
+          subtotal?: number
+          supplier_id?: string | null
+          supplier_name?: string
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

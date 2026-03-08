@@ -40,6 +40,8 @@ import {
   Calculator,
   Layers,
   Receipt,
+  ScrollText,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -110,6 +112,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Truck, label: "Suppliers", path: "/suppliers", minRole: "staff" },
       { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders", minRole: "staff" },
+      { icon: Wallet, label: "Vendor Bills", path: "/vendor-bills", minRole: "staff" },
     ],
   },
   {
@@ -122,6 +125,7 @@ const navGroups: NavGroup[] = [
       { icon: Users, label: "Customers", path: "/customers", minRole: "staff" },
       { icon: FileText, label: "Credit Notes", path: "/credit-notes", minRole: "staff" },
       { icon: RefreshCw, label: "Recurring Invoices", path: "/recurring-invoices", minRole: "admin" },
+      { icon: ScrollText, label: "Customer Statements", path: "/customer-statements", minRole: "staff" },
     ],
   },
   {
