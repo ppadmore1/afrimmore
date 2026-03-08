@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Store, Mail, Lock, User, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import { lovable } from '@/integrations/lovable/index';
+import { Separator } from '@/components/ui/separator';
 
 const emailSchema = z.string().email('Invalid email address').max(255, 'Email is too long');
 const passwordSchema = z.string()
