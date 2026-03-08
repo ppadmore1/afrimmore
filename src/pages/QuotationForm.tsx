@@ -483,7 +483,13 @@ export default function QuotationForm() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Quotation Number</Label>
-                  <Input value={quotationNumber} disabled className="font-mono bg-muted" />
+                  <Input 
+                    value={quotationNumber} 
+                    onChange={(e) => setQuotationNumber(e.target.value)}
+                    className="font-mono" 
+                    placeholder="Auto-generated or enter custom number"
+                  />
+                  <p className="text-xs text-muted-foreground">Auto-generated. Edit to use a custom number.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
