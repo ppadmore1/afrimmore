@@ -118,6 +118,7 @@ export default function POSPage() {
   const [amountReceived, setAmountReceived] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerSession, setScannerSession] = useState(0);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastSaleReceipt, setLastSaleReceipt] = useState<{
     saleNumber: string;
@@ -667,7 +668,10 @@ export default function POSPage() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                onClick={() => setIsScannerOpen(true)}
+                onClick={() => {
+                  setScannerSession((prev) => prev + 1);
+                  setIsScannerOpen(true);
+                }}
                 className="text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,15%)]"
               >
                 <Camera className="w-4 h-4" />
@@ -1100,6 +1104,7 @@ export default function POSPage() {
 
         {/* Barcode Scanner */}
         <BarcodeScanner
+          key={scannerSession}
           isOpen={isScannerOpen}
           onClose={() => setIsScannerOpen(false)}
           onScan={handleBarcodeScan}
