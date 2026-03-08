@@ -465,7 +465,8 @@ export default function POSPage() {
         p_payment_method: selectedPaymentMethod,
         p_amount_paid: parseFloat(amountReceived) || total,
         p_created_by: user?.id || null,
-        p_items: itemsData
+        p_items: itemsData,
+        p_shift_id: activeShiftId || null,
       });
 
       if (rpcError) {
