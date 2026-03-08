@@ -130,6 +130,7 @@ const App = () => (
                <Route path="/multi-currency" element={<ProtectedRoute><MultiCurrencyPage /></ProtectedRoute>} />
                <Route path="/inventory-valuation" element={<ProtectedRoute><InventoryValuationPage /></ProtectedRoute>} />
                <Route path="/tax-management" element={<ProtectedRoute><TaxManagementPage /></ProtectedRoute>} />
+               <Route path="/batch-tracking" element={<ProtectedRoute><BatchTrackingPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
