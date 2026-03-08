@@ -187,7 +187,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [alertShown, setAlertShown] = useState(false);
   const { user, signOut } = useAuth();
   const { isAdmin, currentBranch } = useBranch();
+  const userRole = useUserRole();
   const { lowStockCount, outOfStockCount, criticalProducts, hasAlerts } = useLowStockCheck();
+
+  const userRoleLabel = userRole.isAdmin ? 'Administrator' : userRole.isStaff ? 'Staff' : userRole.isCashier ? 'Cashier' : 'User';
 
   useEffect(() => {
     if (!alertShown && hasAlerts && (lowStockCount > 0 || outOfStockCount > 0)) {
@@ -222,7 +225,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     group.items.some((item) => isItemActive(item.path));
 
   const filterItems = (items: NavItem[]) =>
-    items.filter((item) => !item.adminOnly || isAdmin);
+    items.filter((item) => hasMinRole(userRole, item.minRole || 'staff'));
 
   return (
     <div className="flex min-h-screen w-full bg-background">
