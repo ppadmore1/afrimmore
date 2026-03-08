@@ -3047,6 +3047,11 @@ export type Database = {
               sale_number: string
             }[]
           }
+      safe_delete_branch: { Args: { p_branch_id: string }; Returns: undefined }
+      safe_delete_product: {
+        Args: { p_product_id: string }
+        Returns: undefined
+      }
       set_manager_pin: {
         Args: { p_pin: string; p_user_id: string }
         Returns: undefined

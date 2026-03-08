@@ -161,10 +161,7 @@ export default function BranchesPage() {
     if (!confirm(`Are you sure you want to delete "${branch.name}"?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('branches')
-        .delete()
-        .eq('id', branch.id);
+      const { error } = await supabase.rpc('safe_delete_branch', { p_branch_id: branch.id });
 
       if (error) throw error;
       toast({ title: "Branch deleted successfully" });
