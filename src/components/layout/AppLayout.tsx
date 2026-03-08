@@ -94,6 +94,7 @@ const navGroups: NavGroup[] = [
       { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock" },
       { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder" },
       { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation" },
+      { icon: Layers, label: "Batch Tracking", path: "/batch-tracking" },
     ],
   },
   {
