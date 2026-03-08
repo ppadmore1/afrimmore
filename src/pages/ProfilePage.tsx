@@ -295,99 +295,97 @@ export default function ProfilePage() {
              </Button>
            </CardContent>
          </Card>
-          {isAdmin && <ManagerPinCard />}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Manager PIN
+                </CardTitle>
+                <CardDescription>
+                  {hasExistingPin
+                    ? "You have a PIN set. Enter a new one below to change it."
+                    : "Set a 4–6 digit PIN used to authorize POS actions like voids, refunds, and discount overrides."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="managerPin">New PIN</Label>
+                  <div className="relative">
+                    <Input
+                      id="managerPin"
+                      type={showPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={managerPin}
+                      onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Enter 4–6 digit PIN"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowPin(!showPin)}
+                    >
+                      {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPin">Confirm PIN</Label>
+                  <Input
+                    id="confirmPin"
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Re-enter PIN"
+                  />
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (managerPin.length < 4 || managerPin.length > 6) {
+                      toast({ title: "Invalid PIN", description: "PIN must be 4–6 digits.", variant: "destructive" });
+                      return;
+                    }
+                    if (!/^\d+$/.test(managerPin)) {
+                      toast({ title: "Invalid PIN", description: "PIN must contain only numbers.", variant: "destructive" });
+                      return;
+                    }
+                    if (managerPin !== confirmPin) {
+                      toast({ title: "PIN mismatch", description: "PINs do not match.", variant: "destructive" });
+                      return;
+                    }
+                    setSavingPin(true);
+                    try {
+                      const { error } = await supabase
+                        .from("profiles")
+                        .update({ manager_pin: managerPin, updated_at: new Date().toISOString() })
+                        .eq("id", user!.id);
+                      if (error) throw error;
+                      toast({ title: "PIN saved", description: "Your manager PIN has been updated." });
+                      setManagerPin("");
+                      setConfirmPin("");
+                      setHasExistingPin(true);
+                      setShowPin(false);
+                    } catch (err: any) {
+                      toast({ title: "Error", description: err.message || "Failed to save PIN", variant: "destructive" });
+                    } finally {
+                      setSavingPin(false);
+                    }
+                  }}
+                  disabled={savingPin || managerPin.length < 4}
+                  className="w-full"
+                >
+                  {savingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {hasExistingPin ? "Update PIN" : "Set PIN"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </AppLayout>
-    );
-  }
-
-  function ManagerPinCard() {
-    const handleSavePin = async () => {
-      if (managerPin.length < 4 || managerPin.length > 6) {
-        toast({ title: "Invalid PIN", description: "PIN must be 4–6 digits.", variant: "destructive" });
-        return;
-      }
-      if (!/^\d+$/.test(managerPin)) {
-        toast({ title: "Invalid PIN", description: "PIN must contain only numbers.", variant: "destructive" });
-        return;
-      }
-      if (managerPin !== confirmPin) {
-        toast({ title: "PIN mismatch", description: "PINs do not match.", variant: "destructive" });
-        return;
-      }
-      setSavingPin(true);
-      try {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ manager_pin: managerPin, updated_at: new Date().toISOString() })
-          .eq("id", user!.id);
-        if (error) throw error;
-        toast({ title: "PIN saved", description: "Your manager PIN has been updated." });
-        setManagerPin("");
-        setConfirmPin("");
-        setHasExistingPin(true);
-        setShowPin(false);
-      } catch (err: any) {
-        toast({ title: "Error", description: err.message || "Failed to save PIN", variant: "destructive" });
-      } finally {
-        setSavingPin(false);
-      }
-    };
-
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Manager PIN
-          </CardTitle>
-          <CardDescription>
-            {hasExistingPin
-              ? "You have a PIN set. Enter a new one below to change it."
-              : "Set a 4–6 digit PIN used to authorize POS actions like voids, refunds, and discount overrides."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="managerPin">New PIN</Label>
-            <div className="relative">
-              <Input
-                id="managerPin"
-                type={showPin ? "text" : "password"}
-                inputMode="numeric"
-                maxLength={6}
-                value={managerPin}
-                onChange={(e) => setManagerPin(e.target.value.replace(/\D/g, ""))}
-                placeholder="Enter 4–6 digit PIN"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3"
-                onClick={() => setShowPin(!showPin)}
-              >
-                {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPin">Confirm PIN</Label>
-            <Input
-              id="confirmPin"
-              type={showPin ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={6}
-              value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-              placeholder="Re-enter PIN"
-            />
-          </div>
-          <Button onClick={handleSavePin} disabled={savingPin || managerPin.length < 4} className="w-full">
-            {savingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            {hasExistingPin ? "Update PIN" : "Set PIN"}
-          </Button>
-        </CardContent>
-      </Card>
     );
   }
