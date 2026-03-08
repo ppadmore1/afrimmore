@@ -330,7 +330,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
                     {user?.user_metadata?.full_name || user?.email}
                   </p>
-                  <p className="text-xs text-sidebar-foreground/60">Staff</p>
+                  <p className="text-xs text-sidebar-foreground/60">{userRoleLabel}</p>
                 </div>
               </button>
             </DropdownMenuTrigger>
