@@ -297,6 +297,11 @@ export default function ProductForm() {
         const newProduct = await addProduct(productData);
         if (newProduct?.id) {
           await saveProductSuppliers(newProduct.id);
+          // Auto-generate barcode if not manually set
+          if (!productData.barcode) {
+            const autoBarcode = generateBarcodeValue(newProduct.id);
+            await updateProduct(newProduct.id, { barcode: autoBarcode });
+          }
         }
         toast({ title: "Product created successfully" });
       }
