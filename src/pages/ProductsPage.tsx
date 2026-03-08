@@ -81,8 +81,11 @@ export default function ProductsPage() {
         await deleteProduct(id);
         setProducts(products.filter(p => p.id !== id));
         toast({ title: "Product deleted successfully" });
-      } catch (error) {
-        toast({ title: "Error deleting product", variant: "destructive" });
+      } catch (error: any) {
+        const message = error?.message?.includes('sales or invoices')
+          ? "This product has been used in sales or invoices and cannot be deleted. Consider deactivating it instead."
+          : error?.message || "Error deleting product";
+        toast({ title: "Cannot delete product", description: message, variant: "destructive" });
       }
     }
   }
