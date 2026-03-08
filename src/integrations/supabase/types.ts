@@ -1788,6 +1788,95 @@ export type Database = {
           },
         ]
       }
+      product_batches: {
+        Row: {
+          batch_number: string
+          branch_id: string | null
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          id: string
+          manufacture_date: string | null
+          notes: string | null
+          product_id: string
+          purchase_order_id: string | null
+          quantity: number
+          received_date: string
+          remaining_quantity: number
+          status: string
+          supplier_id: string | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          batch_number: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          manufacture_date?: string | null
+          notes?: string | null
+          product_id: string
+          purchase_order_id?: string | null
+          quantity?: number
+          received_date?: string
+          remaining_quantity?: number
+          status?: string
+          supplier_id?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          manufacture_date?: string | null
+          notes?: string | null
+          product_id?: string
+          purchase_order_id?: string | null
+          quantity?: number
+          received_date?: string
+          remaining_quantity?: number
+          status?: string
+          supplier_id?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_batches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_branches: {
         Row: {
           branch_id: string
@@ -2493,6 +2582,7 @@ export type Database = {
       }
       stock_movements: {
         Row: {
+          batch_id: string | null
           branch_id: string | null
           created_at: string
           created_by: string | null
@@ -2507,6 +2597,7 @@ export type Database = {
           unit_cost: number | null
         }
         Insert: {
+          batch_id?: string | null
           branch_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2521,6 +2612,7 @@ export type Database = {
           unit_cost?: number | null
         }
         Update: {
+          batch_id?: string | null
           branch_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2535,6 +2627,13 @@ export type Database = {
           unit_cost?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_movements_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_movements_branch_id_fkey"
             columns: ["branch_id"]

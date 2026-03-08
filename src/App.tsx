@@ -58,6 +58,7 @@ import BankReconciliationPage from "./pages/BankReconciliationPage";
 import MultiCurrencyPage from "./pages/MultiCurrencyPage";
 import InventoryValuationPage from "./pages/InventoryValuationPage";
 import TaxManagementPage from "./pages/TaxManagementPage";
+import BatchTrackingPage from "./pages/BatchTrackingPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -129,6 +130,7 @@ const App = () => (
                <Route path="/multi-currency" element={<ProtectedRoute><MultiCurrencyPage /></ProtectedRoute>} />
                <Route path="/inventory-valuation" element={<ProtectedRoute><InventoryValuationPage /></ProtectedRoute>} />
                <Route path="/tax-management" element={<ProtectedRoute><TaxManagementPage /></ProtectedRoute>} />
+               <Route path="/batch-tracking" element={<ProtectedRoute><BatchTrackingPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
