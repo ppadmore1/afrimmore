@@ -360,10 +360,10 @@ export default function ProfilePage() {
                     }
                     setSavingPin(true);
                     try {
-                      const { error } = await supabase
-                        .from("profiles")
-                        .update({ manager_pin: managerPin, updated_at: new Date().toISOString() })
-                        .eq("id", user!.id);
+                      const { error } = await supabase.rpc("set_manager_pin", {
+                        p_user_id: user!.id,
+                        p_pin: managerPin,
+                      });
                       if (error) throw error;
                       toast({ title: "PIN saved", description: "Your manager PIN has been updated." });
                       setManagerPin("");
