@@ -468,6 +468,69 @@ export type Database = {
         }
         Relationships: []
       }
+      chart_of_accounts: {
+        Row: {
+          account_code: string
+          account_name: string
+          account_subtype: Database["public"]["Enums"]["account_subtype"] | null
+          account_type: Database["public"]["Enums"]["account_type"]
+          created_at: string
+          current_balance: number
+          description: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          normal_balance: string
+          opening_balance: number
+          parent_account_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_code: string
+          account_name: string
+          account_subtype?:
+            | Database["public"]["Enums"]["account_subtype"]
+            | null
+          account_type: Database["public"]["Enums"]["account_type"]
+          created_at?: string
+          current_balance?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          normal_balance?: string
+          opening_balance?: number
+          parent_account_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string
+          account_name?: string
+          account_subtype?:
+            | Database["public"]["Enums"]["account_subtype"]
+            | null
+          account_type?: Database["public"]["Enums"]["account_type"]
+          created_at?: string
+          current_balance?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          normal_balance?: string
+          opening_balance?: number
+          parent_account_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_parent_account_id_fkey"
+            columns: ["parent_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -1319,6 +1382,45 @@ export type Database = {
           },
         ]
       }
+      fiscal_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          retained_earnings_entry_id: string | null
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          retained_earnings_entry_id?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          retained_earnings_entry_id?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goods_receipt_items: {
         Row: {
           created_at: string
@@ -1705,6 +1807,113 @@ export type Database = {
             columns: ["quotation_id"]
             isOneToOne: false
             referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          entry_number: string
+          fiscal_period_id: string | null
+          id: string
+          is_auto_generated: boolean
+          notes: string | null
+          posted_at: string | null
+          posted_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date?: string
+          entry_number: string
+          fiscal_period_id?: string | null
+          id?: string
+          is_auto_generated?: boolean
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          entry_number?: string
+          fiscal_period_id?: string | null
+          id?: string
+          is_auto_generated?: boolean
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_fiscal_period_id_fkey"
+            columns: ["fiscal_period_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entry_lines: {
+        Row: {
+          account_id: string
+          created_at: string
+          credit: number
+          debit: number
+          description: string | null
+          id: string
+          journal_entry_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -3591,6 +3800,20 @@ export type Database = {
       }
     }
     Enums: {
+      account_subtype:
+        | "current_asset"
+        | "fixed_asset"
+        | "other_asset"
+        | "current_liability"
+        | "long_term_liability"
+        | "owner_equity"
+        | "retained_earnings"
+        | "operating_revenue"
+        | "other_revenue"
+        | "cost_of_goods_sold"
+        | "operating_expense"
+        | "other_expense"
+      account_type: "asset" | "liability" | "equity" | "revenue" | "expense"
       app_role: "admin" | "staff" | "cashier"
       clock_status: "clocked_in" | "clocked_out" | "on_break"
       discount_type: "percentage" | "fixed_amount"
@@ -3750,6 +3973,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_subtype: [
+        "current_asset",
+        "fixed_asset",
+        "other_asset",
+        "current_liability",
+        "long_term_liability",
+        "owner_equity",
+        "retained_earnings",
+        "operating_revenue",
+        "other_revenue",
+        "cost_of_goods_sold",
+        "operating_expense",
+        "other_expense",
+      ],
+      account_type: ["asset", "liability", "equity", "revenue", "expense"],
       app_role: ["admin", "staff", "cashier"],
       clock_status: ["clocked_in", "clocked_out", "on_break"],
       discount_type: ["percentage", "fixed_amount"],
