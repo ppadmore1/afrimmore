@@ -1713,6 +1713,24 @@ export type Database = {
           },
         ]
       }
+      pin_attempt_log: {
+        Row: {
+          attempted_at: string
+          id: string
+          ip_hint: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          ip_hint?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          ip_hint?: string | null
+        }
+        Relationships: []
+      }
       pos_sale_items: {
         Row: {
           created_at: string
@@ -3029,6 +3047,10 @@ export type Database = {
               sale_number: string
             }[]
           }
+      set_manager_pin: {
+        Args: { p_pin: string; p_user_id: string }
+        Returns: undefined
+      }
       verify_manager_pin: {
         Args: { p_pin: string }
         Returns: {
