@@ -42,6 +42,10 @@ import {
   Receipt,
   ScrollText,
   Wallet,
+  ArrowLeftRight,
+  MapPin,
+  PackageCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -101,10 +105,14 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Tag, label: "Products", path: "/products", minRole: "cashier" },
       { icon: Boxes, label: "Inventory", path: "/inventory", minRole: "staff" },
+      { icon: ArrowLeftRight, label: "Stock Transfers", path: "/stock-transfers", minRole: "staff" },
+      { icon: ClipboardCheck, label: "Adjustments", path: "/inventory-adjustments", minRole: "staff" },
       { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock", minRole: "staff" },
       { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder", minRole: "staff" },
       { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation", minRole: "admin" },
       { icon: Layers, label: "Batch Tracking", path: "/batch-tracking", minRole: "staff" },
+      { icon: PackageCheck, label: "Bundle Items", path: "/bundle-items", minRole: "staff" },
+      { icon: MapPin, label: "Warehouse Locations", path: "/warehouse-locations", minRole: "staff" },
     ],
   },
   {
