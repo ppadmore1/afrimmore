@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.scheduled-stock-alert]
 verify_jwt = false
+
+[functions.scheduled-payment-reminder]
+verify_jwt = false
