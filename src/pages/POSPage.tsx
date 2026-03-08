@@ -26,6 +26,8 @@ import {
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { PendingSalesView } from "@/components/pos/PendingSalesView";
+import { ShiftManager } from "@/components/pos/ShiftManager";
+import { ManagerPinDialog } from "@/components/pos/ManagerPinDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +104,7 @@ export default function POSPage() {
   } = useOfflinePOS(currentBranch?.id || null);
 
   const [isPendingSalesOpen, setIsPendingSalesOpen] = useState(false);
+  const [activeShiftId, setActiveShiftId] = useState<string | null>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -462,7 +465,8 @@ export default function POSPage() {
         p_payment_method: selectedPaymentMethod,
         p_amount_paid: parseFloat(amountReceived) || total,
         p_created_by: user?.id || null,
-        p_items: itemsData
+        p_items: itemsData,
+        p_shift_id: activeShiftId || null,
       });
 
       if (rpcError) {
@@ -609,6 +613,9 @@ export default function POSPage() {
                 <span className="text-xs font-medium text-primary">{currentBranch.name}</span>
               </div>
             )}
+
+            {/* Shift Manager */}
+            <ShiftManager onShiftChange={setActiveShiftId} />
 
             <div className="flex-1" />
 

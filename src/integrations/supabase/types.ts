@@ -1611,6 +1611,54 @@ export type Database = {
           },
         ]
       }
+      manager_overrides: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          manager_id: string
+          metadata: Json | null
+          reason: string | null
+          sale_id: string | null
+          shift_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          manager_id: string
+          metadata?: Json | null
+          reason?: string | null
+          sale_id?: string | null
+          shift_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          manager_id?: string
+          metadata?: Json | null
+          reason?: string | null
+          sale_id?: string | null
+          shift_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_overrides_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_overrides_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "pos_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -1732,6 +1780,7 @@ export type Database = {
           id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           sale_number: string
+          shift_id: string | null
           status: Database["public"]["Enums"]["document_status"]
           subtotal: number
           tax_total: number
@@ -1749,6 +1798,7 @@ export type Database = {
           id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number: string
+          shift_id?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number
           tax_total?: number
@@ -1766,6 +1816,7 @@ export type Database = {
           id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number?: string
+          shift_id?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           subtotal?: number
           tax_total?: number
@@ -1784,6 +1835,90 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "pos_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_shifts: {
+        Row: {
+          actual_cash: number | null
+          bank_transfer_sales: number
+          branch_id: string | null
+          card_sales: number
+          cash_difference: number | null
+          cash_sales: number
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          expected_cash: number
+          id: string
+          mobile_money_sales: number
+          notes: string | null
+          opened_at: string
+          opening_float: number
+          status: string
+          total_sales: number
+          total_transactions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_cash?: number | null
+          bank_transfer_sales?: number
+          branch_id?: string | null
+          card_sales?: number
+          cash_difference?: number | null
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          expected_cash?: number
+          id?: string
+          mobile_money_sales?: number
+          notes?: string | null
+          opened_at?: string
+          opening_float?: number
+          status?: string
+          total_sales?: number
+          total_transactions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_cash?: number | null
+          bank_transfer_sales?: number
+          branch_id?: string | null
+          card_sales?: number
+          cash_difference?: number | null
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          expected_cash?: number
+          id?: string
+          mobile_money_sales?: number
+          notes?: string | null
+          opened_at?: string
+          opening_float?: number
+          status?: string
+          total_sales?: number
+          total_transactions?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_shifts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
@@ -2045,6 +2180,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          manager_pin: string | null
           phone: string | null
           updated_at: string
         }
@@ -2054,6 +2190,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          manager_pin?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -2063,6 +2200,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          manager_pin?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -2859,19 +2997,43 @@ export type Database = {
         }
         Returns: string
       }
-      process_pos_sale: {
-        Args: {
-          p_amount_paid: number
-          p_created_by: string
-          p_customer_id: string
-          p_customer_name: string
-          p_items: Json
-          p_payment_method: Database["public"]["Enums"]["payment_method"]
-        }
+      process_pos_sale:
+        | {
+            Args: {
+              p_amount_paid: number
+              p_created_by: string
+              p_customer_id: string
+              p_customer_name: string
+              p_items: Json
+              p_payment_method: Database["public"]["Enums"]["payment_method"]
+            }
+            Returns: {
+              change_amount: number
+              sale_id: string
+              sale_number: string
+            }[]
+          }
+        | {
+            Args: {
+              p_amount_paid: number
+              p_created_by: string
+              p_customer_id: string
+              p_customer_name: string
+              p_items: Json
+              p_payment_method: Database["public"]["Enums"]["payment_method"]
+              p_shift_id?: string
+            }
+            Returns: {
+              change_amount: number
+              sale_id: string
+              sale_number: string
+            }[]
+          }
+      verify_manager_pin: {
+        Args: { p_pin: string }
         Returns: {
-          change_amount: number
-          sale_id: string
-          sale_number: string
+          manager_id: string
+          manager_name: string
         }[]
       }
     }
