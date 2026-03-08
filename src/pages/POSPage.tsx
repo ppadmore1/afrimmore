@@ -547,197 +547,208 @@ export default function POSPage() {
     }
   };
 
+  // Numpad handler
+  const [showNumpad, setShowNumpad] = useState(false);
+  const [numpadTarget, setNumpadTarget] = useState<'quantity' | 'amount'>('amount');
+  const [numpadValue, setNumpadValue] = useState('');
+  const [numpadProductId, setNumpadProductId] = useState<string | null>(null);
+
+  const handleNumpadPress = (key: string) => {
+    if (key === 'C') {
+      setNumpadValue('');
+    } else if (key === '⌫') {
+      setNumpadValue(prev => prev.slice(0, -1));
+    } else if (key === '.') {
+      if (!numpadValue.includes('.')) setNumpadValue(prev => prev + '.');
+    } else if (key === 'OK') {
+      if (numpadTarget === 'amount') {
+        setAmountReceived(numpadValue);
+      } else if (numpadTarget === 'quantity' && numpadProductId) {
+        const qty = parseInt(numpadValue);
+        if (qty > 0) {
+          const item = cart.find(i => i.product.id === numpadProductId);
+          if (item) {
+            const delta = qty - item.quantity;
+            updateQuantity(numpadProductId, delta);
+          }
+        }
+      }
+      setShowNumpad(false);
+      setNumpadValue('');
+    } else {
+      setNumpadValue(prev => prev + key);
+    }
+  };
+
+  const openNumpad = (target: 'quantity' | 'amount', productId?: string) => {
+    setNumpadTarget(target);
+    setNumpadProductId(productId || null);
+    setNumpadValue('');
+    setShowNumpad(true);
+  };
+
   return (
     <AppLayout>
-      <div className="h-[calc(100vh-6rem)] flex flex-col lg:flex-row gap-4">
-        {/* Products Section */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="space-y-4 mb-4">
-            {/* Offline/Online Status Banner */}
+      <div className="h-[calc(100vh-6rem)] flex flex-col lg:flex-row gap-0 bg-[hsl(222,47%,6%)] -m-4 md:-m-6 p-0 rounded-xl overflow-hidden">
+        
+        {/* LEFT PANEL — Products */}
+        <div className="flex-1 flex flex-col min-h-0 bg-[hsl(222,47%,8%)]">
+          {/* Top Bar */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-[hsl(222,47%,9%)] border-b border-[hsl(222,47%,15%)]">
+            {/* Offline Status */}
             {!online && (
-              <div className="flex items-center justify-between gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <WifiOff className="w-4 h-4 text-destructive" />
-                  <span className="text-sm font-medium text-destructive">
-                    Offline Mode - Sales will sync when reconnected
-                  </span>
-                </div>
-                {pendingSales.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setIsPendingSalesOpen(true)}
-                    className="gap-1"
-                  >
-                    <History className="w-3 h-3" />
-                    {pendingSales.length} pending
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Pending sales indicator when online */}
-            {online && pendingSales.length > 0 && (
-              <div className="flex items-center justify-between gap-2 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CloudOff className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">
-                    {pendingSales.length} offline sale{pendingSales.length > 1 ? 's' : ''} pending sync
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsPendingSalesOpen(true)}
-                  >
-                    <History className="w-4 h-4 mr-1" />
-                    View
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={syncPendingSales}
-                    disabled={syncing}
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Sync Now'}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Branch indicator */}
-            {currentBranch && (
-              <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
-                <Building2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">
-                  Showing inventory for: <strong>{currentBranch.name}</strong>
-                </span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/20 rounded-full">
+                <WifiOff className="w-3.5 h-3.5 text-destructive" />
+                <span className="text-xs font-semibold text-destructive uppercase tracking-wide">Offline</span>
               </div>
             )}
             
-          <div className="flex flex-col sm:flex-row gap-3">
-              {/* Barcode Scanner Input */}
-              <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
-                <div className="relative">
-                  <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Scan barcode or SKU..."
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
-                    className="pl-10 w-48"
-                  />
-                </div>
-                <Button type="submit" size="icon" variant="secondary">
-                  <Search className="w-4 h-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setIsScannerOpen(true)}
-                  title="Scan with camera"
-                >
-                  <Camera className="w-4 h-4" />
-                </Button>
-              </form>
+            {currentBranch && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/15 rounded-full">
+                <Building2 className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">{currentBranch.name}</span>
+              </div>
+            )}
 
-              {/* Search Products */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="flex-1" />
+
+            {/* Pending Sales */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPendingSalesOpen(true)}
+              className="text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,15%)] gap-1.5"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Pending</span>
+              {pendingSales.length > 0 && (
+                <span className="flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground">
+                  {pendingSales.length}
+                </span>
+              )}
+            </Button>
+
+            {online && pendingSales.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={syncPendingSales}
+                disabled={syncing}
+                className="text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,15%)]"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+          </div>
+
+          {/* Search & Barcode */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[hsl(222,47%,15%)]">
+            <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
+              <div className="relative">
+                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(215,16%,47%)]" />
                 <Input
-                  ref={searchInputRef}
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  placeholder="Scan barcode..."
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  className="pl-10 w-44 bg-[hsl(222,47%,11%)] border-[hsl(222,47%,18%)] text-white placeholder:text-[hsl(215,16%,40%)] focus:border-primary"
                 />
               </div>
-
-              {/* Always Visible Pending Sales Button */}
-              <Button
-                variant={pendingSales.length > 0 ? "default" : "outline"}
-                onClick={() => setIsPendingSalesOpen(true)}
-                className="gap-2 whitespace-nowrap"
-              >
-                <History className="w-4 h-4" />
-                Pending Sales
-                {pendingSales.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
-                    {pendingSales.length}
-                  </Badge>
-                )}
+              <Button type="submit" size="icon" variant="ghost" className="text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,15%)]">
+                <Search className="w-4 h-4" />
               </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsScannerOpen(true)}
+                className="text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,15%)]"
+              >
+                <Camera className="w-4 h-4" />
+              </Button>
+            </form>
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(215,16%,47%)]" />
+              <Input
+                ref={searchInputRef}
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-[hsl(222,47%,11%)] border-[hsl(222,47%,18%)] text-white placeholder:text-[hsl(215,16%,40%)] focus:border-primary"
+              />
             </div>
           </div>
 
           {/* Products Grid */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 p-3">
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(8)].map((_, i) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                {[...Array(10)].map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-32 bg-muted rounded-lg" />
+                    <div className="h-24 bg-[hsl(222,47%,12%)] rounded-lg" />
                   </div>
                 ))}
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-                <Package className="w-12 h-12 mb-4" />
-                <p>No products found</p>
+              <div className="flex flex-col items-center justify-center h-48 text-[hsl(215,16%,47%)]">
+                <Package className="w-10 h-10 mb-3" />
+                <p className="text-sm">No products found</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 <AnimatePresence mode="popLayout">
                   {filteredProducts.map((product) => {
                     const stock = getEffectiveStock(product);
                     const threshold = getEffectiveThreshold(product);
                     const isLowStock = stock > 0 && stock <= threshold;
                     const isOutOfStock = stock <= 0;
+                    const inCart = cart.find(i => i.product.id === product.id);
                     
                     return (
-                      <motion.div
+                      <motion.button
                         key={product.id}
                         layout
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        onClick={() => addToCart(product)}
+                        className={`relative text-left rounded-xl p-3 transition-all border ${
+                          isOutOfStock 
+                            ? 'opacity-40 cursor-not-allowed bg-[hsl(222,47%,10%)] border-[hsl(222,47%,15%)]' 
+                            : inCart 
+                              ? 'bg-primary/15 border-primary/40 ring-1 ring-primary/30' 
+                              : 'bg-[hsl(222,47%,11%)] border-[hsl(222,47%,16%)] hover:bg-[hsl(222,47%,14%)] hover:border-[hsl(222,47%,22%)] active:scale-[0.97]'
+                        }`}
                       >
-                        <Card
-                          className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
-                            isOutOfStock ? "opacity-50" : ""
-                          }`}
-                          onClick={() => addToCart(product)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="aspect-square mb-3 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                              {product.image_url ? (
-                                <img
-                                  src={product.image_url}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Package className="w-8 h-8 text-muted-foreground" />
-                              )}
-                            </div>
-                            <h3 className="font-medium text-sm truncate">{product.name}</h3>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="font-bold text-primary font-mono">
-                                ${product.unit_price.toFixed(2)}
-                              </span>
-                              <Badge
-                                variant={isOutOfStock ? "destructive" : isLowStock ? "secondary" : "outline"}
-                                className="text-xs"
-                              >
-                                {isOutOfStock && <AlertTriangle className="w-3 h-3 mr-1" />}
-                                {stock}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
+                        {inCart && (
+                          <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-6 h-6 text-[11px] font-bold rounded-full bg-primary text-primary-foreground shadow-lg z-10">
+                            {inCart.quantity}
+                          </span>
+                        )}
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-10 h-10 rounded-lg bg-[hsl(222,47%,15%)] flex items-center justify-center overflow-hidden shrink-0">
+                            {product.image_url ? (
+                              <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="w-5 h-5 text-[hsl(215,16%,47%)]" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-white truncate leading-tight">{product.name}</p>
+                            <p className="text-lg font-bold text-primary font-mono mt-0.5">${product.unit_price.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          {product.sku && (
+                            <span className="text-[10px] text-[hsl(215,16%,40%)] font-mono">{product.sku}</span>
+                          )}
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ml-auto ${
+                            isOutOfStock ? 'text-destructive' : isLowStock ? 'text-[hsl(38,92%,50%)]' : 'text-[hsl(142,76%,42%)]'
+                          }`}>
+                            {isOutOfStock ? 'OUT' : `${stock} left`}
+                          </span>
+                        </div>
+                      </motion.button>
                     );
                   })}
                 </AnimatePresence>
@@ -746,120 +757,92 @@ export default function POSPage() {
           </ScrollArea>
         </div>
 
-        {/* Cart Section */}
-        <Card className="lg:w-96 flex flex-col min-h-[400px] lg:min-h-0">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                Cart
-                {cart.length > 0 && (
-                  <Badge variant="secondary">{cart.length}</Badge>
-                )}
-              </CardTitle>
-              {cart.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearCart}>
-                  Clear
-                </Button>
-              )}
-            </div>
-
-            {/* Customer Selection */}
+        {/* RIGHT PANEL — Cart & Checkout */}
+        <div className="lg:w-[420px] flex flex-col bg-[hsl(222,47%,9%)] border-l border-[hsl(222,47%,15%)]">
+          {/* Customer Selector */}
+          <div className="px-4 py-3 border-b border-[hsl(222,47%,15%)]">
             <Select
               value={selectedCustomer?.id || "walk-in"}
               onValueChange={(value) => {
-                if (value === "walk-in") {
-                  setSelectedCustomer(null);
-                } else {
-                  const customer = customers.find((c) => c.id === value);
-                  setSelectedCustomer(customer || null);
-                }
+                if (value === "walk-in") setSelectedCustomer(null);
+                else setSelectedCustomer(customers.find((c) => c.id === value) || null);
               }}
             >
-              <SelectTrigger className="mt-2">
-                <User className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Select customer" />
+              <SelectTrigger className="bg-[hsl(222,47%,11%)] border-[hsl(222,47%,18%)] text-white">
+                <User className="w-4 h-4 mr-2 text-[hsl(215,16%,47%)]" />
+                <SelectValue placeholder="Walk-in Customer" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="walk-in">Walk-in Customer</SelectItem>
                 {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
+                  <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </CardHeader>
+          </div>
 
-          <Separator />
-
-          <ScrollArea className="flex-1 p-4">
+          {/* Cart Items */}
+          <ScrollArea className="flex-1">
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                <ShoppingCart className="w-8 h-8 mb-2" />
-                <p className="text-sm">Cart is empty</p>
+              <div className="flex flex-col items-center justify-center h-48 text-[hsl(215,16%,40%)]">
+                <ShoppingCart className="w-10 h-10 mb-3 opacity-40" />
+                <p className="text-sm font-medium">No items in cart</p>
+                <p className="text-xs mt-1">Tap a product to add</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-[hsl(222,47%,14%)]">
                 <AnimatePresence mode="popLayout">
-                  {cart.map((item) => (
+                  {cart.map((item, index) => (
                     <motion.div
                       key={item.product.id}
                       layout
-                      initial={{ opacity: 0, x: 20 }}
+                      initial={{ opacity: 0, x: 30 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="flex gap-3 p-3 rounded-lg bg-muted/50"
+                      exit={{ opacity: 0, x: -30 }}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-[hsl(222,47%,11%)] transition-colors group"
                     >
-                      <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                        {item.product.image_url ? (
-                          <img
-                            src={item.product.image_url}
-                            alt={item.product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Package className="w-5 h-5 text-muted-foreground" />
-                        )}
-                      </div>
+                      <span className="text-xs text-[hsl(215,16%,40%)] font-mono w-5 text-right">{index + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
+                        <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
+                        <p className="text-xs text-[hsl(215,16%,47%)] font-mono">
                           ${item.product.unit_price.toFixed(2)} × {item.quantity}
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <p className="font-bold text-sm font-mono">
-                          ${(item.product.unit_price * item.quantity).toFixed(2)}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.product.id, -1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.product.id, 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => removeFromCart(item.product.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,18%)]"
+                          onClick={() => updateQuantity(item.product.id, -1)}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </Button>
+                        <button
+                          onClick={() => openNumpad('quantity', item.product.id)}
+                          className="w-8 text-center text-sm font-bold text-white hover:text-primary transition-colors"
+                        >
+                          {item.quantity}
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-[hsl(210,40%,70%)] hover:text-white hover:bg-[hsl(222,47%,18%)]"
+                          onClick={() => updateQuantity(item.product.id, 1)}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
+                      <span className="text-sm font-bold text-white font-mono w-20 text-right">
+                        ${(item.product.unit_price * item.quantity).toFixed(2)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-[hsl(215,16%,40%)] hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeFromCart(item.product.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -867,156 +850,200 @@ export default function POSPage() {
             )}
           </ScrollArea>
 
-          <Separator />
-
-           {/* Discount Code Input */}
-           <div className="p-4 pb-0">
-             {appliedDiscount ? (
-               <div className="flex items-center justify-between p-3 rounded-lg bg-success/10 border border-success/30">
-                 <div className="flex items-center gap-2">
-                   <Tag className="w-4 h-4 text-success" />
-                   <div>
-                     <p className="text-sm font-medium text-success">{appliedDiscount.code.code}</p>
-                     <p className="text-xs text-muted-foreground">{appliedDiscount.code.name}</p>
-                   </div>
-                 </div>
-                 <Button
-                   variant="ghost"
-                   size="sm"
-                   onClick={removeDiscountCode}
-                   className="text-destructive hover:text-destructive"
-                 >
-                   <X className="w-4 h-4" />
-                 </Button>
-               </div>
-             ) : (
-               <div className="flex gap-2">
-                 <div className="relative flex-1">
-                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                   <Input
-                     placeholder="Discount code..."
-                     value={discountCodeInput}
-                     onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
-                     onKeyDown={(e) => e.key === "Enter" && applyDiscountCode()}
-                     className="pl-10 uppercase"
-                     disabled={cart.length === 0}
-                   />
-                 </div>
-                 <Button
-                   variant="secondary"
-                   onClick={applyDiscountCode}
-                   disabled={!discountCodeInput.trim() || validatingCode || cart.length === 0}
-                 >
-                   {validatingCode ? (
-                     <Loader2 className="w-4 h-4 animate-spin" />
-                   ) : (
-                     "Apply"
-                   )}
-                 </Button>
-               </div>
-             )}
-           </div>
- 
-           {/* Totals */}
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-mono">${subtotal.toFixed(2)}</span>
-            </div>
-            {discountTotal > 0 && (
-              <div className="flex justify-between text-sm text-success">
-                 <span>Item Discounts</span>
-                <span className="font-mono">-${discountTotal.toFixed(2)}</span>
+          {/* Discount Code */}
+          <div className="px-4 py-3 border-t border-[hsl(222,47%,15%)]">
+            {appliedDiscount ? (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[hsl(142,76%,36%)]/10 border border-[hsl(142,76%,36%)]/30">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-3.5 h-3.5 text-[hsl(142,76%,42%)]" />
+                  <span className="text-xs font-semibold text-[hsl(142,76%,42%)]">{appliedDiscount.code.code}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-[hsl(215,16%,47%)] hover:text-destructive" onClick={removeDiscountCode}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(215,16%,40%)]" />
+                  <Input
+                    placeholder="Promo code"
+                    value={discountCodeInput}
+                    onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && applyDiscountCode()}
+                    className="pl-9 h-9 text-xs bg-[hsl(222,47%,11%)] border-[hsl(222,47%,18%)] text-white placeholder:text-[hsl(215,16%,35%)] uppercase"
+                    disabled={cart.length === 0}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={applyDiscountCode}
+                  disabled={!discountCodeInput.trim() || validatingCode || cart.length === 0}
+                  className="text-primary hover:text-primary hover:bg-primary/10 h-9"
+                >
+                  {validatingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                </Button>
               </div>
             )}
-             {couponDiscount > 0 && (
-               <div className="flex justify-between text-sm text-success">
-                 <span className="flex items-center gap-1">
-                   <Tag className="w-3 h-3" />
-                   {appliedDiscount?.code.code}
-                 </span>
-                 <span className="font-mono">-${couponDiscount.toFixed(2)}</span>
-               </div>
-             )}
+          </div>
+
+          {/* Totals */}
+          <div className="px-4 py-3 space-y-1.5 border-t border-[hsl(222,47%,15%)] bg-[hsl(222,47%,7%)]">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tax</span>
-              <span className="font-mono">${taxTotal.toFixed(2)}</span>
+              <span className="text-[hsl(215,16%,50%)]">Subtotal</span>
+              <span className="font-mono text-[hsl(210,40%,80%)]">${subtotal.toFixed(2)}</span>
             </div>
-            <Separator />
-            <div className="flex justify-between text-lg font-bold">
-              <span>Total</span>
-              <span className="font-mono text-primary">${total.toFixed(2)}</span>
+            {discountTotal > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-[hsl(142,76%,42%)]">Discounts</span>
+                <span className="font-mono text-[hsl(142,76%,42%)]">-${discountTotal.toFixed(2)}</span>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="flex items-center gap-1 text-[hsl(142,76%,42%)]">
+                  <Tag className="w-3 h-3" />{appliedDiscount?.code.code}
+                </span>
+                <span className="font-mono text-[hsl(142,76%,42%)]">-${couponDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-[hsl(215,16%,50%)]">Tax</span>
+              <span className="font-mono text-[hsl(210,40%,80%)]">${taxTotal.toFixed(2)}</span>
+            </div>
+            <Separator className="bg-[hsl(222,47%,18%)]" />
+            <div className="flex justify-between items-baseline pt-1">
+              <span className="text-lg font-semibold text-white">Total</span>
+              <span className="text-3xl font-bold font-mono text-primary">${total.toFixed(2)}</span>
             </div>
           </div>
 
-          <div className="p-4 pt-0">
+          {/* Payment Buttons */}
+          <div className="p-4 space-y-2 border-t border-[hsl(222,47%,15%)]">
+            {cart.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearCart}
+                className="w-full text-[hsl(215,16%,47%)] hover:text-destructive hover:bg-destructive/10"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear Cart
+              </Button>
+            )}
             <Button
-              className="w-full"
-              size="lg"
+              className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
               disabled={cart.length === 0}
               onClick={() => {
                 setAmountReceived(total.toFixed(2));
                 setIsPaymentDialogOpen(true);
               }}
             >
-              <CreditCard className="w-4 h-4 mr-2" />
+              <CreditCard className="w-5 h-5 mr-3" />
               Charge ${total.toFixed(2)}
             </Button>
           </div>
-        </Card>
+        </div>
+
+        {/* Numpad Overlay */}
+        <Dialog open={showNumpad} onOpenChange={setShowNumpad}>
+          <DialogContent className="sm:max-w-xs bg-[hsl(222,47%,9%)] border-[hsl(222,47%,18%)] text-white">
+            <DialogHeader>
+              <DialogTitle className="text-center text-[hsl(210,40%,80%)]">
+                {numpadTarget === 'quantity' ? 'Enter Quantity' : 'Enter Amount'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="text-center py-4">
+              <span className="text-4xl font-bold font-mono text-primary">
+                {numpadTarget === 'amount' && '$'}{numpadValue || '0'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(key => (
+                <Button
+                  key={key}
+                  variant="ghost"
+                  className="h-14 text-xl font-bold text-white hover:bg-[hsl(222,47%,15%)] bg-[hsl(222,47%,11%)] border border-[hsl(222,47%,18%)]"
+                  onClick={() => handleNumpadPress(key)}
+                >
+                  {key}
+                </Button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Button
+                variant="ghost"
+                className="h-12 text-[hsl(215,16%,47%)] hover:bg-[hsl(222,47%,15%)] bg-[hsl(222,47%,11%)] border border-[hsl(222,47%,18%)]"
+                onClick={() => handleNumpadPress('C')}
+              >
+                Clear
+              </Button>
+              <Button
+                className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                onClick={() => handleNumpadPress('OK')}
+              >
+                <Check className="w-5 h-5 mr-2" />
+                OK
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Payment Dialog */}
         <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-[hsl(222,47%,9%)] border-[hsl(222,47%,18%)] text-white">
             <DialogHeader>
-              <DialogTitle>Process Payment</DialogTitle>
+              <DialogTitle className="text-center text-white">Process Payment</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6">
-              {/* Total */}
-              <div className="text-center p-6 rounded-lg bg-muted">
-                <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-                <p className="text-4xl font-bold font-mono text-primary">
-                  ${total.toFixed(2)}
-                </p>
+              {/* Total Display */}
+              <div className="text-center py-6 rounded-xl bg-[hsl(222,47%,7%)] border border-[hsl(222,47%,15%)]">
+                <p className="text-xs uppercase tracking-widest text-[hsl(215,16%,47%)] mb-2">Total Due</p>
+                <p className="text-5xl font-bold font-mono text-primary">${total.toFixed(2)}</p>
               </div>
 
               {/* Payment Methods */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {paymentMethods.map((method) => (
-                  <Button
+                  <button
                     key={method.value}
-                    variant={selectedPaymentMethod === method.value ? "default" : "outline"}
-                    className="h-20 flex-col gap-2"
                     onClick={() => setSelectedPaymentMethod(method.value)}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      selectedPaymentMethod === method.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-[hsl(222,47%,18%)] bg-[hsl(222,47%,11%)] text-[hsl(210,40%,70%)] hover:border-[hsl(222,47%,25%)]'
+                    }`}
                   >
                     <method.icon className="w-6 h-6" />
-                    {method.label}
-                  </Button>
+                    <span className="text-sm font-semibold">{method.label}</span>
+                  </button>
                 ))}
               </div>
 
-              {/* Amount Received (for cash) */}
+              {/* Cash Amount */}
               {selectedPaymentMethod === "cash" && (
                 <div className="space-y-3">
-                  <label className="text-sm font-medium">Amount Received</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[hsl(215,16%,47%)]">Amount Received</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={amountReceived}
                     onChange={(e) => setAmountReceived(e.target.value)}
-                    className="text-xl font-mono text-center h-14"
+                    onClick={() => openNumpad('amount')}
+                    className="text-2xl font-mono text-center h-16 bg-[hsl(222,47%,11%)] border-[hsl(222,47%,18%)] text-white"
                     placeholder="0.00"
+                    readOnly
                   />
                   {parseFloat(amountReceived) >= total && (
-                    <div className="flex justify-between p-3 rounded-lg bg-success/10 text-success">
-                      <span className="font-medium">Change</span>
-                      <span className="font-bold font-mono">
+                    <div className="flex justify-between p-3 rounded-xl bg-[hsl(142,76%,36%)]/10 border border-[hsl(142,76%,36%)]/30">
+                      <span className="font-semibold text-[hsl(142,76%,42%)]">Change</span>
+                      <span className="font-bold font-mono text-[hsl(142,76%,42%)]">
                         ${Math.max(0, parseFloat(amountReceived) - total).toFixed(2)}
                       </span>
                     </div>
                   )}
-                  {/* Quick amount buttons */}
                   <div className="grid grid-cols-4 gap-2">
                     {[total, Math.ceil(total / 10) * 10, Math.ceil(total / 20) * 20, Math.ceil(total / 50) * 50]
                       .filter((v, i, a) => a.indexOf(v) === i)
@@ -1024,9 +1051,10 @@ export default function POSPage() {
                       .map((amount) => (
                         <Button
                           key={amount}
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => setAmountReceived(amount.toFixed(2))}
+                          className="bg-[hsl(222,47%,11%)] border border-[hsl(222,47%,18%)] text-white hover:bg-[hsl(222,47%,15%)]"
                         >
                           ${amount.toFixed(0)}
                         </Button>
@@ -1038,26 +1066,23 @@ export default function POSPage() {
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <Button
-                  variant="outline"
-                  className="flex-1"
+                  variant="ghost"
+                  className="flex-1 h-12 border border-[hsl(222,47%,18%)] text-[hsl(210,40%,70%)] hover:bg-[hsl(222,47%,15%)]"
                   onClick={() => setIsPaymentDialogOpen(false)}
                 >
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-lg shadow-primary/25"
                   onClick={processPayment}
-                  disabled={
-                    processingPayment ||
-                    (selectedPaymentMethod === "cash" && parseFloat(amountReceived) < total)
-                  }
+                  disabled={processingPayment || (selectedPaymentMethod === "cash" && parseFloat(amountReceived) < total)}
                 >
                   {processingPayment ? (
-                    <>Processing...</>
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Complete Sale
+                      <Check className="w-5 h-5 mr-2" />
+                      Pay
                     </>
                   )}
                 </Button>
