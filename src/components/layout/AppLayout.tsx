@@ -39,6 +39,7 @@ import {
   Globe,
   Calculator,
   Layers,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/" },
       { icon: ShoppingCart, label: "POS", path: "/pos" },
+      { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up" },
     ],
   },
   {
