@@ -58,6 +58,7 @@ import BankReconciliationPage from "./pages/BankReconciliationPage";
 import MultiCurrencyPage from "./pages/MultiCurrencyPage";
 import InventoryValuationPage from "./pages/InventoryValuationPage";
 import TaxManagementPage from "./pages/TaxManagementPage";
+import BatchTrackingPage from "./pages/BatchTrackingPage";
 const queryClient = new QueryClient();
 
 const App = () => (
