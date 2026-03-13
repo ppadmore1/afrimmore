@@ -433,23 +433,43 @@ export default function AuthPage() {
                 <>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {!isLogin && (
-                      <div className="space-y-2">
-                        <Label htmlFor="fullName">Full Name</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="fullName"
-                            type="text"
-                            placeholder="John Doe"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            className="pl-10"
-                          />
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="fullName">Full Name</Label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="fullName"
+                              type="text"
+                              placeholder="John Doe"
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                          {errors.fullName && (
+                            <p className="text-sm text-destructive">{errors.fullName}</p>
+                          )}
                         </div>
-                        {errors.fullName && (
-                          <p className="text-sm text-destructive">{errors.fullName}</p>
-                        )}
-                      </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="companyName">Company / Business Name</Label>
+                          <div className="relative">
+                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              id="companyName"
+                              type="text"
+                              placeholder="My Business Ltd"
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                          {errors.companyName && (
+                            <p className="text-sm text-destructive">{errors.companyName}</p>
+                          )}
+                        </div>
+                      </>
                     )}
                     
                     <div className="space-y-2">
