@@ -104,6 +104,9 @@ export default function AuthPage() {
       if (!nameResult.success) {
         newErrors.fullName = nameResult.error.errors[0].message;
       }
+      if (!companyName || companyName.trim().length < 2) {
+        newErrors.companyName = 'Company name must be at least 2 characters';
+      }
     }
     
     setErrors(newErrors);
