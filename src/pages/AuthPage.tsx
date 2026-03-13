@@ -30,8 +30,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; confirmPassword?: string; companyName?: string }>({});
   
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
