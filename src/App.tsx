@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BranchProvider } from "@/contexts/BranchContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import { OfflineSyncProvider } from "@/contexts/OfflineSyncContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
@@ -74,7 +75,8 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <BranchProvider>
+      <TenantProvider>
+        <BranchProvider>
         <OfflineSyncProvider>
           <TooltipProvider>
             <Toaster />
@@ -157,6 +159,7 @@ const App = () => (
           </TooltipProvider>
         </OfflineSyncProvider>
       </BranchProvider>
+      </TenantProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
