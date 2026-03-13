@@ -159,6 +159,7 @@ const App = () => (
           </TooltipProvider>
         </OfflineSyncProvider>
       </BranchProvider>
+      </TenantProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
