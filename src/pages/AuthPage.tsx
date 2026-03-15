@@ -23,7 +23,8 @@ const passwordSchema = z.string()
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'signup');
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -36,7 +37,6 @@ export default function AuthPage() {
   
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   // Check for password reset token in URL (from email link)
   useEffect(() => {

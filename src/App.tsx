@@ -70,6 +70,9 @@ import WarehouseLocationsPage from "./pages/WarehouseLocationsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import JournalEntriesPage from "./pages/JournalEntriesPage";
 import TrialBalancePage from "./pages/TrialBalancePage";
+import LandingPage from "./pages/LandingPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
+import SuperAdminPage from "./pages/SuperAdminPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -83,6 +86,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
+                <Route path="/landing" element={<LandingPage />} />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
@@ -153,6 +157,8 @@ const App = () => (
                <Route path="/chart-of-accounts" element={<ProtectedRoute><ChartOfAccountsPage /></ProtectedRoute>} />
                <Route path="/journal-entries" element={<ProtectedRoute><JournalEntriesPage /></ProtectedRoute>} />
                <Route path="/trial-balance" element={<ProtectedRoute><TrialBalancePage /></ProtectedRoute>} />
+               <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
+               <Route path="/super-admin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

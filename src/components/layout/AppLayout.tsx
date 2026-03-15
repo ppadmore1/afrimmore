@@ -182,6 +182,8 @@ const navGroups: NavGroup[] = [
       { icon: ShieldCheck, label: "Approval Thresholds", path: "/approval-thresholds", minRole: "admin" },
       { icon: Star, label: "Branch Grades", path: "/branch-grades", minRole: "admin" },
       { icon: ShieldAlert, label: "Audit Visits", path: "/audit-visits", minRole: "admin" },
+      { icon: CreditCard, label: "Subscription", path: "/subscription", minRole: "admin" },
+      { icon: ShieldCheck, label: "Super Admin", path: "/super-admin", minRole: "admin" },
     ],
   },
 ];
