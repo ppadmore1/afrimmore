@@ -37,7 +37,6 @@ export default function AuthPage() {
   
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   // Check for password reset token in URL (from email link)
   useEffect(() => {

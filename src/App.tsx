@@ -157,6 +157,8 @@ const App = () => (
                <Route path="/chart-of-accounts" element={<ProtectedRoute><ChartOfAccountsPage /></ProtectedRoute>} />
                <Route path="/journal-entries" element={<ProtectedRoute><JournalEntriesPage /></ProtectedRoute>} />
                <Route path="/trial-balance" element={<ProtectedRoute><TrialBalancePage /></ProtectedRoute>} />
+               <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
+               <Route path="/super-admin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
