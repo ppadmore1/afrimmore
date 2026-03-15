@@ -70,6 +70,9 @@ import WarehouseLocationsPage from "./pages/WarehouseLocationsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import JournalEntriesPage from "./pages/JournalEntriesPage";
 import TrialBalancePage from "./pages/TrialBalancePage";
+import LandingPage from "./pages/LandingPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
+import SuperAdminPage from "./pages/SuperAdminPage";
 const queryClient = new QueryClient();
 
 const App = () => (
