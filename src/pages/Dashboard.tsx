@@ -32,6 +32,7 @@ import {
   type POSSale,
 } from "@/lib/supabase-db";
 import { format } from "date-fns";
+import { BranchPerformance } from "@/components/dashboard/BranchPerformance";
 
 const container = {
   hidden: { opacity: 0 },
@@ -220,6 +221,12 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </motion.div>
+
+        <motion.div variants={item}>
+          <BranchPerformance />
+        </motion.div>
+
+
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
