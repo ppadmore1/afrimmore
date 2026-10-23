@@ -8,6 +8,13 @@
       "when": 1792734326421,
       "tag": "0000_online_storefront",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792734615100,
+      "tag": "0001_link_existing_data_to_tenant",
+      "breakpoints": true
     }
   ]
 }
