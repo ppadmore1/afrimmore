@@ -486,6 +486,10 @@ export function AppLayout({ children }: AppLayoutProps) {
             className="absolute top-full left-0 right-0 bg-card border-b border-border shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain"
           >
             <nav className="p-4 space-y-2">
+              <div className="pb-2 border-b border-border">
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Branch</p>
+                <BranchSelector />
+              </div>
               {navGroups.map((group) => {
                 const visibleItems = filterItems(group.items);
                 if (visibleItems.length === 0) return null;
