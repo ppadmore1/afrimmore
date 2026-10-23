@@ -296,29 +296,29 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
-        <div className="p-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+        <div className="p-6 pb-3">
+          <Link to="/" className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-xl gradient-primary flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="font-bold text-lg text-sidebar-foreground">AFRIMORE BMS</h1>
-              <p className="text-xs text-sidebar-foreground/60">Business Management System</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-lg text-sidebar-foreground leading-tight truncate">AFRIMORE BMS</h1>
+              <p className="text-[11px] text-sidebar-foreground/60 truncate">Business Management System</p>
             </div>
           </Link>
-          <div className="flex items-center gap-2">
-            <OfflineIndicator />
-            {hasAlerts && (
-              <Link to="/inventory" className="relative">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/70 hover:text-sidebar-foreground">
-                  <Bell className="h-5 w-5" />
-                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    {totalAlertCount > 9 ? '9+' : totalAlertCount}
-                  </Badge>
-                </Button>
-              </Link>
-            )}
-          </div>
+        </div>
+        <div className="px-6 pb-4 flex items-center justify-between gap-2">
+          <OfflineIndicator />
+          {hasAlerts && (
+            <Link to="/inventory" className="relative shrink-0">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                <Bell className="h-5 w-5" />
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {totalAlertCount > 9 ? '9+' : totalAlertCount}
+                </Badge>
+              </Button>
+            </Link>
+          )}
         </div>
 
         <div className="px-4 pb-4">
@@ -391,7 +391,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 text-left">
+                <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
                     {user?.user_metadata?.full_name || user?.email}
                   </p>
