@@ -4740,6 +4740,17 @@ export type Database = {
           total: number
         }[]
       }
+      post_auto_journal: {
+        Args: {
+          p_desc: string
+          p_lines: Json
+          p_ref_id: string
+          p_ref_type: string
+          p_tenant: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       process_pos_sale:
         | {
             Args: {

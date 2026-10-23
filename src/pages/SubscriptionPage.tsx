@@ -98,6 +98,12 @@ export default function SubscriptionPage() {
           <h1 className="text-3xl font-bold text-foreground">Subscription & Billing</h1>
           <p className="text-muted-foreground">Manage your plan and usage</p>
         </div>
+        {new URLSearchParams(window.location.search).get('expired') && (
+          <div className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+            <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+            <span>Your free trial has ended. Choose a plan below to keep using the system — your data is safe.</span>
+          </div>
+        )}
 
         {isTrialExpired && (
           <Card className="border-destructive bg-destructive/5">

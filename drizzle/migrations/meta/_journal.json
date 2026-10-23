@@ -15,6 +15,13 @@
       "when": 1792734615100,
       "tag": "0001_link_existing_data_to_tenant",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792735206456,
+      "tag": "0002_plan_limits_invites_locks_journals",
+      "breakpoints": true
     }
   ]
 }
