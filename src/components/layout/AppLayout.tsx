@@ -301,11 +301,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="w-10 h-10 shrink-0 rounded-xl gradient-primary flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-lg text-sidebar-foreground leading-tight truncate">AFRIMORE BMS</h1>
-              <p className="text-[11px] text-sidebar-foreground/60 truncate">Business Management System</p>
-            </div>
+            <h1 className="font-bold text-lg text-sidebar-foreground leading-tight truncate">AFRIMORE BMS</h1>
           </Link>
+          <p className="text-[11px] text-sidebar-foreground/60 mt-1.5 truncate">Business Management System</p>
         </div>
         <div className="px-6 pb-4 flex items-center justify-between gap-2">
           <OfflineIndicator />
