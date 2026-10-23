@@ -853,9 +853,24 @@ export default function POSPage() {
                       <span className="text-xs text-[hsl(215,16%,40%)] font-mono w-5 text-right">{index + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
-                        <p className="text-xs text-[hsl(215,16%,47%)] font-mono">
-                          ${item.product.unit_price.toFixed(2)} × {item.quantity}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-[hsl(215,16%,47%)] font-mono">
+                          <span>${item.product.unit_price.toFixed(2)} × {item.quantity}</span>
+                          <label className="flex items-center gap-1" title="Item discount %">
+                            <span>Disc</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              inputMode="decimal"
+                              aria-label={`Discount percent for ${item.product.name}`}
+                              value={item.discount || ""}
+                              placeholder="0"
+                              onChange={(e) => setItemDiscount(item.product.id, parseFloat(e.target.value) || 0)}
+                              className="w-12 h-6 rounded bg-[hsl(222,47%,14%)] text-white text-center outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <span>%</span>
+                          </label>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
