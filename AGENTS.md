@@ -1,1 +1,2 @@
 - Public storefront (/shop/:slug) reads and writes only via SECURITY DEFINER RPCs (get_shop_catalog, place_online_order); why: anon users must never touch tenant tables directly and prices/stock are enforced server-side.
+- Specialist roles (inventory_officer, accountant, executive) get a per-role menu allowlist in AppLayout (SPECIALIST_PATHS); why: job-specific menus without changing the admin/staff/cashier levels. Removing a user goes through the remove_tenant_user RPC; why: it clears roles, branches and business membership in one admin-checked step.
