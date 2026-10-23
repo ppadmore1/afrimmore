@@ -8,6 +8,7 @@ import {
   CreditCard,
   BarChart3,
   ShoppingCart,
+  Lightbulb,
   FileCheck,
   Truck,
   Menu,
@@ -102,6 +103,7 @@ const navGroups: NavGroup[] = [
       { icon: ShoppingCart, label: "POS", path: "/pos", minRole: "cashier" },
       { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up", minRole: "cashier" },
       { icon: ShoppingCart, label: "Online Orders", path: "/online-orders", minRole: "staff" },
+      { icon: Lightbulb, label: "Ask AI (Branch Insights)", path: "/branch-insights", minRole: "staff" },
     ],
   },
   {
