@@ -187,6 +187,10 @@ export default function InventoryPage() {
       });
 
       setProducts(branchProducts.sort((a, b) => a.name.localeCompare(b.name)));
+      // If nothing is stocked at this branch, show the full catalog instead of an empty list
+      if (!branchProducts.some(p => p.stock_quantity > 0)) {
+        setFilter(f => (f === "instock" ? "all" : f));
+      }
     } catch (error) {
       console.error("Error loading branch products:", error);
       toast({ title: "Error loading inventory", variant: "destructive" });

@@ -269,7 +269,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         title: `⚠️ Low Stock Alert (${totalAlerts} items)`,
         description,
         variant: "destructive",
-        duration: 8000,
+        duration: 4000,
       });
     }
   }, [hasAlerts, lowStockCount, outOfStockCount, alertShown]);
