@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.delete_invitations(uuid[]) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.process_pos_sale(uuid, text, payment_method, numeric, uuid, jsonb, uuid, text) FROM PUBLIC, anon;
