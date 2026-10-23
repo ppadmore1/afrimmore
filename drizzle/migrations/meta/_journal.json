@@ -78,6 +78,13 @@
       "when": 1792774686885,
       "tag": "0010_fix_safe_delete_product",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792775413509,
+      "tag": "0011_safe_delete_invoice",
+      "breakpoints": true
     }
   ]
 }

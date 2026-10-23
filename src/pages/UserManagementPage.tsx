@@ -57,6 +57,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { InviteUserDialog } from "@/components/user-management/InviteUserDialog";
 import { PendingInvitations } from "@/components/user-management/PendingInvitations";
+import { CreateUserDialog } from "@/components/user-management/CreateUserDialog";
 
 interface UserProfile {
   id: string;
@@ -370,10 +371,13 @@ export default function UserManagementPage() {
             <h1 className="text-3xl font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground mt-1">Manage user roles and branch assignments</p>
           </div>
-          <InviteUserDialog 
-            branches={branches} 
-            inviterName={users.find(u => u.id === currentUser?.id)?.full_name || undefined}
-          />
+          <div className="flex flex-wrap gap-2">
+            <CreateUserDialog branches={branches} onCreated={loadUsers} />
+            <InviteUserDialog 
+              branches={branches} 
+              inviterName={users.find(u => u.id === currentUser?.id)?.full_name || undefined}
+            />
+          </div>
         </div>
 
         {/* Search */}

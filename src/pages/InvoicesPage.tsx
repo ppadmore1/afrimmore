@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -74,10 +75,11 @@ export default function InvoicesPage() {
   async function handleDelete(id: string) {
     setProcessing(true);
     try {
-      await deleteInvoice(id);
+      const { error } = await supabase.rpc('safe_delete_invoice', { p_invoice_id: id });
+      if (error) throw error;
       setInvoices(invoices.filter(i => i.id !== id));
       toast({ title: "Invoice deleted" });
-    } catch { toast({ title: "Error deleting", variant: "destructive" }); }
+    } catch (e: any) { toast({ title: "Could not delete invoice", description: e?.message, variant: "destructive" }); }
     finally { setProcessing(false); setDeleteDialog(null); }
   }
 
