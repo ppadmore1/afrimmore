@@ -1,10 +1,10 @@
 # Roadmap
 - [x] Brand colors, POS split USD/LRD, online shop + orders
-- [x] Plan limits enforced (users, branches, products)
-- [x] Invites join the inviting company
-- [x] Finalised invoices/sales/payments locked
-- [x] Automatic journal entries (sales, invoices, payments, expenses)
-- [x] Expired trials redirected to Subscription page
-- [ ] Online subscription payments — blocked: needs Lovable Pro plan upgrade
-- [ ] Extra roles — awaiting user's permission list
-- [ ] Shift close per currency
+- [x] Plan limits, invites, locked records, auto journals, trial expiry
+- [x] Extra roles + account assignments
+- [x] Shift close per currency (USD, LRD, mobile money)
+- [x] Daily Email Reports settings page
+- [x] Remove DEMO- sales
+- [ ] Daily report sending — blocked: email domain not connected
+- [ ] Subscription card payments — awaiting user OK to enable Paddle
+- [ ] Real stock counts — awaiting user's stock list
