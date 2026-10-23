@@ -13,6 +13,7 @@ import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import InventoryPage from "./pages/InventoryPage";
 import POSPage from "./pages/POSPage";
+import SerialNumbersPage from "./pages/SerialNumbersPage";
 import ProductsPage from "./pages/ProductsPage";
 import ProductForm from "./pages/ProductForm";
 import QuotationsPage from "./pages/QuotationsPage";
@@ -173,6 +174,7 @@ const App = () => (
                <Route path="/trial-balance" element={<ProtectedRoute><TrialBalancePage /></ProtectedRoute>} />
                <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
                <Route path="/super-admin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />
+               <Route path="/serial-numbers" element={<ProtectedRoute><SerialNumbersPage /></ProtectedRoute>} />
                <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
