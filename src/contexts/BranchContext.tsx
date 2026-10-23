@@ -54,14 +54,14 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Check if user is admin
-      const { data: roleData } = await supabase
+      // Head-office roles can open every branch; everyone else only their assigned branches
+      const { data: roleRows } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user.id);
 
-      const userIsAdmin = roleData?.role === 'admin';
+      const userIsAdmin = (roleRows || []).some((r: any) =>
+        ['admin', 'owner', 'executive', 'accountant'].includes(r.role));
       setIsAdmin(userIsAdmin);
 
       // Get all branches
