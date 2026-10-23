@@ -118,11 +118,12 @@ export default function InvoiceDetail() {
     
     setProcessing(true);
     try {
-      await deleteInvoice(invoice.id);
+      const { error } = await supabase.rpc('safe_delete_invoice', { p_invoice_id: invoice.id });
+      if (error) throw error;
       toast({ title: "Invoice deleted successfully" });
       navigate("/invoices");
-    } catch (error) {
-      toast({ title: "Error deleting invoice", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Could not delete invoice", description: error?.message, variant: "destructive" });
     } finally {
       setProcessing(false);
       setDeleteDialog(false);

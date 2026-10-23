@@ -140,6 +140,17 @@ export function PendingInvitations({ branches, inviterName }: PendingInvitations
     }
   }
 
+  async function deleteInvitations(ids: string[]) {
+    if (!ids.length || !confirm(`Permanently delete ${ids.length} invitation(s)?`)) return;
+    const { error } = await supabase.from('invitations').delete().in('id', ids);
+    if (error) {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Deleted ${ids.length} invitation(s)` });
+    loadInvitations();
+  }
+
   function openCancelDialog(invitation: Invitation) {
     setInvitationToCancel(invitation);
     setCancelDialogOpen(true);
@@ -223,6 +234,14 @@ export function PendingInvitations({ branches, inviterName }: PendingInvitations
           
           <CollapsibleContent>
             <CardContent className="pt-0">
+              {invitations.some(i => i.status === 'cancelled' || (i.status === 'pending' && isExpired(i.expires_at))) && (
+                <div className="flex justify-end mb-3">
+                  <Button variant="outline" size="sm" className="text-destructive"
+                    onClick={() => deleteInvitations(invitations.filter(i => i.status === 'cancelled' || (i.status === 'pending' && isExpired(i.expires_at))).map(i => i.id))}>
+                    <Trash2 className="w-4 h-4 mr-1" />Clear all cancelled
+                  </Button>
+                </div>
+              )}
               <div className="space-y-3">
                 {invitations.map(invitation => {
                   const expired = isExpired(invitation.expires_at);
@@ -261,7 +280,13 @@ export function PendingInvitations({ branches, inviterName }: PendingInvitations
                         </div>
                       </div>
 
-                      {invitation.status === 'pending' && (
+                      {(invitation.status === 'cancelled' || effectiveStatus === 'expired') && (
+                        <Button variant="ghost" size="sm" title="Delete invitation" className="text-destructive hover:text-destructive"
+                          onClick={() => deleteInvitations([invitation.id])}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {invitation.status === 'pending' && !expired && (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
