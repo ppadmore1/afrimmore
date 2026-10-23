@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { generateBarcodeValue } from "@/components/BarcodeGenerator";
 
-type P = { id: string; name: string; sku: string | null; barcode: string | null; unit_price: number; stock_quantity: number | null };
+type P = { id: string; name: string; sku: string | null; barcode: string | null; unit_price: number; stock_quantity: number | null; category_id: string | null };
 
 const LAYOUTS = {
   a4_18: { label: "A4 sheet — 18 labels (3 × 6)", page: [210, 297] as [number, number], cols: 3, rows: 6 },
@@ -35,15 +36,35 @@ export default function BarcodeLabelsPage() {
   const [showPrice, setShowPrice] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    supabase.from("products").select("id,name,sku,barcode,unit_price,stock_quantity").eq("is_active", true).order("name")
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [category, setCategory] = useState("all");
+  const loadProducts = () =>
+    supabase.from("products").select("id,name,sku,barcode,unit_price,stock_quantity,category_id").eq("is_active", true).order("name")
       .then(({ data }) => setProducts((data as P[]) || []));
+  useEffect(() => {
+    loadProducts();
+    supabase.from("categories").select("id,name").order("name").then(({ data }) => setCategories(data || []));
   }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return products.filter((p) => !q || [p.name, p.sku, p.barcode].some((v) => (v || "").toLowerCase().includes(q)));
-  }, [products, search]);
+    return products.filter((p) =>
+      (category === "all" || (category === "none" ? !p.category_id : p.category_id === category)) &&
+      (!q || [p.name, p.sku, p.barcode].some((v) => (v || "").toLowerCase().includes(q))));
+  }, [products, search, category]);
+
+  const missing = filtered.filter((p) => !p.barcode);
+  const generateMissing = async () => {
+    setBusy(true);
+    let ok = 0;
+    for (const p of missing) {
+      const { error } = await supabase.from("products").update({ barcode: generateBarcodeValue(p.id) }).eq("id", p.id);
+      if (!error) ok++;
+    }
+    await loadProducts();
+    setBusy(false);
+    toast({ title: `${ok} barcodes created`, description: "Those products can now be ticked and printed." });
+  };
 
   const getQty = (p: P) => qty[p.id] ?? 1;
   const toggle = (id: string, on: boolean) => setSelected((s) => { const n = new Set(s); on ? n.add(id) : n.delete(id); return n; });
@@ -142,7 +163,20 @@ export default function BarcodeLabelsPage() {
 
         <Card>
           <CardContent className="space-y-3 p-4">
-            <Input placeholder="Search by name, SKU or barcode" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input placeholder="Search by name, SKU or barcode" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  <SelectItem value="none">No category</SelectItem>
+                  {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {missing.length > 0 && (
+                <Button variant="outline" disabled={busy} onClick={generateMissing}>Create barcodes for {missing.length} without one</Button>
+              )}
+            </div>
             <Table>
               <TableHeader><TableRow>
                 <TableHead className="w-10"><Checkbox checked={allOn} onCheckedChange={(v) => filtered.forEach((p) => p.barcode && toggle(p.id, !!v))} /></TableHead>
