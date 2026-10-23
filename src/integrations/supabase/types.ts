@@ -4795,6 +4795,7 @@ export type Database = {
         Args: { p_branch_id: string; p_user_id: string }
         Returns: boolean
       }
+      delete_invitations: { Args: { p_ids: string[] }; Returns: number }
       get_branch_portal: {
         Args: { p_branch_id: string; p_date: string }
         Returns: Json
@@ -4894,6 +4895,7 @@ export type Database = {
               p_created_by: string
               p_customer_id: string
               p_customer_name: string
+              p_discount_code?: string
               p_items: Json
               p_payment_method: Database["public"]["Enums"]["payment_method"]
               p_shift_id?: string

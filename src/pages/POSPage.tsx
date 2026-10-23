@@ -315,6 +315,11 @@ export default function POSPage() {
     });
   };
 
+  const setItemDiscount = (productId: string, pct: number) => {
+    const clamped = Math.min(100, Math.max(0, pct));
+    setCart((prev) => prev.map((i) => (i.product.id === productId ? { ...i, discount: clamped } : i)));
+  };
+
   const updateQuantity = (productId: string, delta: number) => {
     setCart((prev) => {
       const index = prev.findIndex((item) => item.product.id === productId);
@@ -499,7 +504,8 @@ export default function POSPage() {
         p_created_by: user?.id || null,
         p_items: itemsData,
         p_shift_id: activeShiftId || null,
-      });
+        p_discount_code: appliedDiscount?.code.code || null,
+      } as any);
 
       if (rpcError) {
         if (rpcError.message.includes('Insufficient stock')) {
@@ -853,9 +859,24 @@ export default function POSPage() {
                       <span className="text-xs text-[hsl(215,16%,40%)] font-mono w-5 text-right">{index + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
-                        <p className="text-xs text-[hsl(215,16%,47%)] font-mono">
-                          ${item.product.unit_price.toFixed(2)} × {item.quantity}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-[hsl(215,16%,47%)] font-mono">
+                          <span>${item.product.unit_price.toFixed(2)} × {item.quantity}</span>
+                          <label className="flex items-center gap-1" title="Item discount %">
+                            <span>Disc</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              inputMode="decimal"
+                              aria-label={`Discount percent for ${item.product.name}`}
+                              value={item.discount || ""}
+                              placeholder="0"
+                              onChange={(e) => setItemDiscount(item.product.id, parseFloat(e.target.value) || 0)}
+                              className="w-12 h-6 rounded bg-[hsl(222,47%,14%)] text-white text-center outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <span>%</span>
+                          </label>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -882,7 +903,7 @@ export default function POSPage() {
                         </Button>
                       </div>
                       <span className="text-sm font-bold text-white font-mono w-20 text-right">
-                        ${(item.product.unit_price * item.quantity).toFixed(2)}
+                        ${(item.product.unit_price * item.quantity * (1 - (item.discount || 0) / 100)).toFixed(2)}
                       </span>
                       <Button
                         variant="ghost"

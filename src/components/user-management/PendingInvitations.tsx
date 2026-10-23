@@ -142,13 +142,15 @@ export function PendingInvitations({ branches, inviterName }: PendingInvitations
   }
 
   async function deleteInvitations(ids: string[]) {
-    if (!ids.length || !confirm(`Permanently delete ${ids.length} invitation(s)?`)) return;
-    const { error } = await supabase.from('invitations').delete().in('id', ids);
+    if (!ids.length) return;
+    // No browser confirm(): it is silently blocked in embedded previews and some mobile browsers.
+    const { data, error } = await supabase.rpc('delete_invitations' as any, { p_ids: ids });
     if (error) {
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: `Deleted ${ids.length} invitation(s)` });
+    setInvitations(prev => prev.filter(i => !ids.includes(i.id)));
+    toast({ title: `Deleted ${data ?? ids.length} invitation(s)` });
     loadInvitations();
   }
 
