@@ -343,9 +343,16 @@ export default function POSPage() {
      resetDiscount();
   };
 
+  const norm = (v?: string | null) => (v || "").replace(/\s+/g, "").toUpperCase();
+  const findByCode = (raw: string) => {
+    const c = norm(raw);
+    if (!c) return undefined;
+    return products.find((p) => norm(p.barcode) === c || norm(p.sku) === c);
+  };
+
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const product = products.find((p) => p.barcode === barcodeInput || p.sku === barcodeInput);
+    const product = findByCode(barcodeInput);
     if (product) {
       addToCart(product);
       setBarcodeInput("");
@@ -359,7 +366,7 @@ export default function POSPage() {
   };
 
   const handleBarcodeScan = (code: string) => {
-    const product = products.find((p) => p.barcode === code || p.sku === code);
+    const product = findByCode(code);
     if (product) {
       addToCart(product);
     } else {
