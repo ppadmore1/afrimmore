@@ -309,7 +309,11 @@ export default function ProductForm() {
       navigate("/products");
     } catch (error) {
       console.error("Error saving product:", error);
-      toast({ title: "Error saving product", variant: "destructive" });
+      const raw = (error as { message?: string })?.message || "";
+      let reason = raw;
+      if (/row-level security|permission denied/i.test(raw)) reason = "Your account doesn't have permission to add products. Ask an admin to give you a role.";
+      else if (/duplicate key|unique/i.test(raw)) reason = "Another product already uses this SKU or barcode.";
+      toast({ title: "Error saving product", description: reason || "Please try again.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
