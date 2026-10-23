@@ -50,6 +50,13 @@
       "when": 1792768609680,
       "tag": "0006_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792770018176,
+      "tag": "0007_remove_tenant_user",
+      "breakpoints": true
     }
   ]
 }
