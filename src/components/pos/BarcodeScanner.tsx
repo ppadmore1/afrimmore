@@ -14,6 +14,8 @@ interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
   onClose: () => void;
   isOpen: boolean;
+  /** Only accept codes this returns true for; misreads are ignored and scanning continues */
+  acceptCode?: (code: string) => boolean;
 }
 
 const getCameraErrorMessage = (err: any) => {
@@ -34,7 +36,7 @@ const getCameraErrorMessage = (err: any) => {
   return "Could not access camera. Please allow camera permissions and try again.";
 };
 
-export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps) {
+export function BarcodeScanner({ onScan, onClose, isOpen, acceptCode }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
@@ -120,7 +122,8 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
       // Reject unreliable reads: require the same code 3 times in a row
       const errs = (result?.codeResult?.decodedCodes || []).filter((d: any) => d.error !== undefined).map((d: any) => d.error);
       const avgErr = errs.length ? errs.reduce((a: number, b: number) => a + b, 0) / errs.length : 0;
-      if (avgErr > 0.25) return;
+      if (avgErr > 0.2) return;
+      if (acceptCode && !acceptCode(code)) return; // misread (e.g. "suk") — keep scanning
       if (lastCodeRef.current === code) countRef.current += 1;
       else { lastCodeRef.current = code; countRef.current = 1; }
       if (countRef.current < 3) return;
@@ -173,7 +176,6 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
                 "ean_reader",
                 "ean_8_reader",
                 "code_128_reader",
-                "code_39_reader",
                 "upc_reader",
                 "upc_e_reader",
               ],
