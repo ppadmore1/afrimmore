@@ -64,6 +64,7 @@ import BatchTrackingPage from "./pages/BatchTrackingPage";
 import DailyCashUpPage from "./pages/DailyCashUpPage";
 import CashUpDashboardPage from "./pages/CashUpDashboardPage";
 import BranchPortalPage from "./pages/BranchPortalPage";
+import BarcodeLabelsPage from "./pages/BarcodeLabelsPage";
 import CustomerStatementsPage from "./pages/CustomerStatementsPage";
 import VendorBillsPage from "./pages/VendorBillsPage";
 import StockTransfersPage from "./pages/StockTransfersPage";
@@ -158,6 +159,7 @@ const App = () => (
                <Route path="/tax-management" element={<ProtectedRoute><TaxManagementPage /></ProtectedRoute>} />
                <Route path="/batch-tracking" element={<ProtectedRoute><BatchTrackingPage /></ProtectedRoute>} />
                <Route path="/daily-cash-up" element={<ProtectedRoute><DailyCashUpPage /></ProtectedRoute>} />
+               <Route path="/barcode-labels" element={<ProtectedRoute><BarcodeLabelsPage /></ProtectedRoute>} />
                <Route path="/my-branch" element={<ProtectedRoute><BranchPortalPage /></ProtectedRoute>} />
                <Route path="/cash-up-dashboard" element={<ProtectedRoute><CashUpDashboardPage /></ProtectedRoute>} />
                <Route path="/customer-statements" element={<ProtectedRoute><CustomerStatementsPage /></ProtectedRoute>} />
