@@ -145,9 +145,14 @@ export default function UserManagementPage() {
 
       if (branchesError) throw branchesError;
 
+      // Only people who belong to this business
+      const { data: members } = await supabase.from('tenant_users').select('user_id');
+      const memberIds = new Set((members || []).map((m: any) => m.user_id));
+      const rank = ['owner','admin','executive','branch_manager','accountant','inventory_officer','staff','cashier'];
+
       // Combine data
-      const usersWithDetails: UserWithDetails[] = (profiles || []).map(profile => {
-        const userRole = roles?.find(r => r.user_id === profile.id);
+      const usersWithDetails: UserWithDetails[] = (profiles || []).filter(p => memberIds.has(p.id)).map(profile => {
+        const userRole = roles?.filter(r => r.user_id === profile.id).sort((a, b) => rank.indexOf(a.role) - rank.indexOf(b.role))[0];
         const userBranchAssignments = userBranches?.filter(ub => ub.user_id === profile.id) || [];
         const defaultBranchAssignment = userBranchAssignments.find(ub => ub.is_default);
 
@@ -276,23 +281,10 @@ export default function UserManagementPage() {
     setDeleting(true);
 
     try {
-      // Delete user branches
-      const { error: branchesError } = await supabase
-        .from('user_branches')
-        .delete()
-        .eq('user_id', userToDelete.id);
+      const { error: rmError } = await (supabase.rpc as any)('remove_tenant_user', { p_user_id: userToDelete.id });
+      if (rmError) throw rmError;
 
-      if (branchesError) throw branchesError;
-
-      // Delete user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userToDelete.id);
-
-      if (roleError) throw roleError;
-
-      toast({ title: "User access removed successfully" });
+      toast({ title: "User removed", description: "They can no longer sign in to this business." });
       setDeleteDialogOpen(false);
       setUserToDelete(null);
       loadUsers();
