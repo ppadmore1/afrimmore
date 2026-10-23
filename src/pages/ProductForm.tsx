@@ -73,6 +73,18 @@ export default function ProductForm() {
   const [categoryId, setCategoryId] = useState<string>("");
   const [unitPrice, setUnitPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
+  const [purchaseCost, setPurchaseCost] = useState("");
+  const [freightCost, setFreightCost] = useState("");
+  const [customsCost, setCustomsCost] = useState("");
+  const [transportCost, setTransportCost] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [leadTime, setLeadTime] = useState("");
+  const [safetyDays, setSafetyDays] = useState("");
+  const [isService, setIsService] = useState(false);
+  const landedCost = landedUnitCost(purchaseCost, freightCost, customsCost, transportCost);
+  const effectiveCost = purchaseCost ? landedCost : Number(costPrice) || 0;
+  const profitPerUnit = (Number(unitPrice) || 0) - effectiveCost;
+  const marginPct = Number(unitPrice) > 0 ? (profitPerUnit / Number(unitPrice)) * 100 : 0;
   const [unit, setUnit] = useState("pcs");
   const [stockQuantity, setStockQuantity] = useState("");
   const [lowStockThreshold, setLowStockThreshold] = useState("10");
@@ -165,6 +177,15 @@ export default function ProductForm() {
         setCategoryId(product.category_id || "");
         setUnitPrice(product.unit_price.toString());
         setCostPrice(product.cost_price?.toString() || "");
+        const p = product as any;
+        setPurchaseCost(p.purchase_cost?.toString() || "");
+        setFreightCost(p.freight_cost ? String(p.freight_cost) : "");
+        setCustomsCost(p.customs_cost ? String(p.customs_cost) : "");
+        setTransportCost(p.local_transport_cost ? String(p.local_transport_cost) : "");
+        setMinPrice(p.min_selling_price?.toString() || "");
+        setLeadTime(p.lead_time_days?.toString() || "");
+        setSafetyDays(p.safety_stock_days?.toString() || "");
+        setIsService(!!p.is_service);
         setUnit(product.unit || "pcs");
         setStockQuantity(product.stock_quantity.toString());
         setLowStockThreshold(product.low_stock_threshold?.toString() || "10");
@@ -278,7 +299,15 @@ export default function ProductForm() {
         barcode: barcode.trim() || null,
         category_id: categoryId || null,
         unit_price: parseFloat(unitPrice),
-        cost_price: costPrice ? parseFloat(costPrice) : null,
+        cost_price: purchaseCost ? landedCost : costPrice ? parseFloat(costPrice) : null,
+        purchase_cost: purchaseCost ? parseFloat(purchaseCost) : null,
+        freight_cost: parseFloat(freightCost) || 0,
+        customs_cost: parseFloat(customsCost) || 0,
+        local_transport_cost: parseFloat(transportCost) || 0,
+        min_selling_price: minPrice ? parseFloat(minPrice) : null,
+        lead_time_days: leadTime ? parseInt(leadTime) : null,
+        safety_stock_days: safetyDays ? parseInt(safetyDays) : null,
+        is_service: isService,
         unit: unit.trim() || "pcs",
         stock_quantity: stockQuantity ? parseInt(stockQuantity) : 0,
         low_stock_threshold: lowStockThreshold ? parseInt(lowStockThreshold) : 10,
@@ -470,17 +499,68 @@ export default function ProductForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="costPrice">Cost Price</Label>
+                <Label htmlFor="costPrice">Landed Cost per Unit</Label>
                 <Input
                   id="costPrice"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={costPrice}
+                  value={purchaseCost ? landedCost.toFixed(2) : costPrice}
                   onChange={(e) => setCostPrice(e.target.value)}
+                  disabled={!!purchaseCost}
                   placeholder="0.00"
                 />
+                {purchaseCost && <p className="text-xs text-muted-foreground">Calculated from the breakdown below</p>}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="minPrice">Minimum Selling Price</Label>
+                <Input id="minPrice" type="number" step="0.01" min="0" value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)} placeholder="Lowest price staff may sell at" />
+                <p className="text-xs text-muted-foreground">Below this, the POS needs a manager PIN</p>
+              </div>
+
+              <div className="sm:col-span-3 rounded-md border p-4 space-y-3">
+                <p className="text-sm font-medium">Landed cost breakdown (per unit, USD)</p>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  {[
+                    ["Supplier price", purchaseCost, setPurchaseCost],
+                    ["Freight / shipping", freightCost, setFreightCost],
+                    ["Customs & clearance", customsCost, setCustomsCost],
+                    ["Local transport", transportCost, setTransportCost],
+                  ].map(([label, val, set]) => (
+                    <div key={label as string} className="space-y-1">
+                      <Label className="text-xs">{label as string}</Label>
+                      <Input type="number" step="0.01" min="0" value={val as string}
+                        onChange={(e) => (set as (v: string) => void)(e.target.value)} placeholder="0.00" />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Tip: divide the total shipment charge by the number of units (e.g. $500 freight ÷ 10 laptops = $50 each).</p>
+                {Number(unitPrice) > 0 && effectiveCost > 0 && (
+                  <div className="grid gap-2 sm:grid-cols-3 text-sm">
+                    <div>Profit per unit: <strong className={profitPerUnit < 0 ? "text-destructive" : "text-primary"}>${profitPerUnit.toFixed(2)}</strong></div>
+                    <div>Margin: <strong>{marginPct.toFixed(1)}%</strong></div>
+                    <div>Profit at minimum price: <strong>{minPrice ? `$${(Number(minPrice) - effectiveCost).toFixed(2)}` : "—"}</strong></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="leadTime">Import lead time (days)</Label>
+                <Input id="leadTime" type="number" min="1" value={leadTime}
+                  onChange={(e) => setLeadTime(e.target.value)} placeholder="120 (default)" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="safetyDays">Safety stock (days of sales)</Label>
+                <Input id="safetyDays" type="number" min="0" value={safetyDays}
+                  onChange={(e) => setSafetyDays(e.target.value)} placeholder="14 (default)" />
+              </div>
+              <div className="flex items-center gap-2 pt-7">
+                <input id="isService" type="checkbox" checked={isService} onChange={(e) => setIsService(e.target.checked)} />
+                <Label htmlFor="isService">This is a service (no stock)</Label>
+              </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="taxRate">Tax Rate (%)</Label>
