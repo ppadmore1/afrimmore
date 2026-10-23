@@ -176,6 +176,25 @@ export default function ProductsPage() {
      return { success, failed };
    };
 
+   const norm = (v: unknown) => String(v ?? "").replace(/\s+/g, "").toUpperCase();
+   const validateImportRow = (row: Partial<Product>, i: number, all: Partial<Product>[]): string | null => {
+     const r = row as any;
+     if (!String(r.name || "").trim()) return "Name is missing";
+     for (const f of ["unit_price", "cost_price", "stock_quantity", "low_stock_threshold", "tax_rate"]) {
+       const v = String(r[f] ?? "").trim();
+       if (v && isNaN(Number(v))) return `${f.replace(/_/g, " ")} is not a number`;
+       if (v && Number(v) < 0) return `${f.replace(/_/g, " ")} is negative`;
+     }
+     const sku = norm(r.sku), bc = norm(r.barcode);
+     if (sku && products.some(p => norm(p.sku) === sku)) return `SKU ${r.sku} already exists`;
+     if (bc && products.some(p => norm(p.barcode) === bc)) return `Barcode ${r.barcode} already exists`;
+     if (sku && all.slice(0, i).some(o => norm((o as any).sku) === sku)) return "SKU repeated in file";
+     if (bc && all.slice(0, i).some(o => norm((o as any).barcode) === bc)) return "Barcode repeated in file";
+     if (r.category && !categories.some(c => c.name.trim().toLowerCase() === String(r.category).trim().toLowerCase())) return `Category "${r.category}" not found`;
+     if (r.branch && !branchList.some(b => b.name.trim().toLowerCase() === String(r.branch).trim().toLowerCase())) return `Branch "${r.branch}" not found`;
+     return null;
+   };
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
