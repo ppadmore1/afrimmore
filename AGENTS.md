@@ -1,0 +1,1 @@
+- Public storefront (/shop/:slug) reads and writes only via SECURITY DEFINER RPCs (get_shop_catalog, place_online_order); why: anon users must never touch tenant tables directly and prices/stock are enforced server-side.
