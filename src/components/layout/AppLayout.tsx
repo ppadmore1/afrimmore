@@ -424,14 +424,25 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <ShoppingCart className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-foreground">POSFlow</span>
-          </Link>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-4 py-2">
+          <div className="flex items-center gap-1 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              className="shrink-0"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+            <Link to="/" className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 shrink-0 rounded-lg gradient-primary flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-foreground hidden min-[380px]:inline truncate">POSFlow</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
             <OfflineIndicator />
             <BranchSelector compact />
             {hasAlerts && (
@@ -463,9 +474,6 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
           </div>
         </div>
 
@@ -475,7 +483,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 bg-card border-b border-border shadow-lg max-h-[70vh] overflow-y-auto"
+            className="absolute top-full left-0 right-0 bg-card border-b border-border shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain"
           >
             <nav className="p-4 space-y-2">
               {navGroups.map((group) => {
