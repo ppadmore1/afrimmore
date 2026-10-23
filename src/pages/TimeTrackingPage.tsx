@@ -41,7 +41,7 @@
          .is("clock_out", null)
          .order("clock_in", { ascending: false })
          .limit(1)
-         .single();
+         .maybeSingle();
        
        if (error && error.code !== "PGRST116") throw error;
        return data as TimeEntry | null;

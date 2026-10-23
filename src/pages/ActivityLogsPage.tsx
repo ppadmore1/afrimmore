@@ -39,13 +39,10 @@
      queryFn: async () => {
        let query = supabase
          .from("activity_logs")
-         .select(`
-           *,
-           profiles:user_id (full_name, email)
-         `)
+         .select("*")
          .order("created_at", { ascending: false })
          .limit(100);
- 
+
        if (entityFilter !== "all") {
          query = query.eq("entity_type", entityFilter);
        }
@@ -55,10 +52,16 @@
        if (search) {
          query = query.or(`entity_name.ilike.%${search}%,action.ilike.%${search}%`);
        }
- 
+
        const { data, error } = await query;
        if (error) throw error;
-       return data;
+       const ids = [...new Set((data || []).map((l) => l.user_id).filter(Boolean))] as string[];
+       const profileMap = new Map<string, { full_name: string | null; email: string | null }>();
+       if (ids.length) {
+         const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+         (profs || []).forEach((p) => profileMap.set(p.id, { full_name: p.full_name, email: p.email }));
+       }
+       return (data || []).map((l) => ({ ...l, profiles: l.user_id ? profileMap.get(l.user_id) ?? null : null }));
      },
    });
  
