@@ -71,6 +71,13 @@
       "when": 1792771363402,
       "tag": "0009_user_roles_own_read",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792774686885,
+      "tag": "0010_fix_safe_delete_product",
+      "breakpoints": true
     }
   ]
 }
