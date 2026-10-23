@@ -6,5 +6,7 @@
 - [x] Daily Email Reports settings page
 - [x] Remove DEMO- sales
 - [ ] Daily report sending — blocked: email domain not connected
-- [ ] Subscription card payments — awaiting user OK to enable Paddle
-- [ ] Real stock counts — awaiting user's stock list
+- [ ] Subscription card payments — Paddle form was closed; waiting for user to fill it in
+- [ ] Real stock counts — count sheet sent; waiting for user to fill the real_count column
+- [x] Branch Cash-Up Dashboard
+- [x] Scanner ignores misreads ("suk")
