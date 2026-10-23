@@ -5,3 +5,5 @@
 - Product CSV import validates every row in a preview (ImportDialog validateRow) and only saves OK rows; why: bad rows must be visible and downloadable before anything is written.
 - Head-office roles (owner, admin, executive, accountant; is_hq() in the database, isHeadOffice() in the app) see all branches; everyone else is limited to their user_branches by RLS on pos_sales, pos_shifts and branch_reports; why: branch staff must never see other branches' or company-wide figures.
 - The "/" dashboard is head-office only; cashiers are redirected to /pos and other branch roles to /my-branch; why: role-based landing like standard ERPs.
+- Stock-changing workflows (transfer dispatch/receive, goods receiving) go through SECURITY DEFINER RPCs (dispatch_stock_transfer, receive_stock_transfer, receive_purchase_order) that update product_branches and log stock_movements atomically; why: no partial updates or client-side stock math. Dispatch deducts the source, receipt credits the destination (two-stage in-transit).
+- Products without a SKU get AFR-<CAT4>-00001 style codes from a DB trigger; why: unique SKUs for manual and bulk imports alike.
