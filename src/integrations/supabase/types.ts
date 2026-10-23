@@ -4906,6 +4906,10 @@ export type Database = {
           }
       remove_tenant_user: { Args: { p_user_id: string }; Returns: undefined }
       safe_delete_branch: { Args: { p_branch_id: string }; Returns: undefined }
+      safe_delete_invoice: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
       safe_delete_product: {
         Args: { p_product_id: string }
         Returns: undefined
