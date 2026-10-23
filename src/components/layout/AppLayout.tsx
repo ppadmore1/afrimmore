@@ -177,6 +177,7 @@ const navGroups: NavGroup[] = [
       { icon: Building2, label: "Branches", path: "/branches", minRole: "admin" },
       { icon: BarChart3, label: "Admin Dashboard", path: "/admin", minRole: "admin" },
       { icon: Settings, label: "Settings", path: "/settings", minRole: "admin" },
+      { icon: Mail, label: "Daily Email Reports", path: "/email-reports", minRole: "admin" },
       { icon: Users, label: "User Management", path: "/users", minRole: "admin" },
       { icon: Percent, label: "Discount Codes", path: "/discounts", minRole: "admin" },
       { icon: History, label: "Activity Logs", path: "/activity-logs", minRole: "admin" },
