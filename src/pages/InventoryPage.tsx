@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Package, 
@@ -14,7 +15,14 @@ import {
   History,
   ArrowUpRight,
   ArrowDownRight,
+  Download,
+  Upload,
+  Hash,
+  Tags,
+  Layers,
 } from "lucide-react";
+import { generateCSV, downloadCSV, parseCSV } from "@/lib/csv";
+import { fmtLrd, usdToLrd } from "@/lib/currency";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +110,8 @@ export default function InventoryPage() {
   const [historyProduct, setHistoryProduct] = useState<BranchProduct | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(false);
+  const countFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (currentBranch) {
@@ -201,6 +211,64 @@ export default function InventoryPage() {
   const lowStockCount = products.filter(p => p.stock_quantity <= p.low_stock_threshold && p.stock_quantity > 0).length;
   const outOfStockCount = products.filter(p => p.stock_quantity === 0).length;
   const totalValue = products.reduce((sum, p) => sum + (p.stock_quantity * p.unit_price), 0);
+
+  function exportCountSheet() {
+    if (!currentBranch) return;
+    const rows = products.map(p => ({
+      product_id: p.product_id, name: p.name, sku: p.sku ?? "",
+      current_stock: p.stock_quantity, real_count: "", min_level: p.low_stock_threshold,
+    }));
+    const csv = generateCSV(rows, [
+      { key: "product_id", header: "product_id" }, { key: "name", header: "name" },
+      { key: "sku", header: "sku" }, { key: "current_stock", header: "current_stock" },
+      { key: "real_count", header: "real_count" }, { key: "min_level", header: "min_level" },
+    ]);
+    downloadCSV(csv, `count_sheet_${currentBranch.name.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.csv`);
+  }
+
+  async function handleCountUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !currentBranch || !user) return;
+    setUploadingCount(true);
+    try {
+      const text = await file.text();
+      const { data } = parseCSV<{ product_id: string; sku: string; real_count: string; min_level: string }>(text, {
+        product_id: "product_id", sku: "sku", real_count: "real_count", min_level: "min_level",
+      });
+      let updated = 0, skipped = 0;
+      for (const row of data) {
+        const p = products.find(x => (row.product_id && x.product_id === row.product_id) || (row.sku && x.sku === row.sku));
+        const count = row.real_count != null && row.real_count !== "" ? parseInt(String(row.real_count)) : NaN;
+        const min = row.min_level != null && row.min_level !== "" ? parseInt(String(row.min_level)) : NaN;
+        if (!p || (isNaN(count) && isNaN(min)) || count < 0 || min < 0) { skipped++; continue; }
+        const newQty = isNaN(count) ? p.stock_quantity : count;
+        const newMin = isNaN(min) ? p.low_stock_threshold : min;
+        if (newQty === p.stock_quantity && newMin === p.low_stock_threshold) continue;
+        const { error } = await supabase.from("product_branches").upsert({
+          product_id: p.product_id, branch_id: currentBranch.id,
+          stock_quantity: newQty, low_stock_threshold: newMin,
+        }, { onConflict: "product_id,branch_id" });
+        if (error) { skipped++; continue; }
+        const diff = newQty - p.stock_quantity;
+        if (diff !== 0) {
+          await supabase.from("stock_movements").insert({
+            product_id: p.product_id, branch_id: currentBranch.id, quantity: diff,
+            movement_type: diff > 0 ? "adjustment_in" : "adjustment_out",
+            notes: `Stock count: ${p.stock_quantity} → ${newQty}`, created_by: user.id,
+          });
+        }
+        updated++;
+      }
+      toast({ title: `Stock count saved: ${updated} updated`, description: skipped ? `${skipped} rows skipped (unknown product or invalid number)` : undefined });
+      await loadBranchProducts();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Could not read the count sheet", variant: "destructive" });
+    } finally {
+      setUploadingCount(false);
+    }
+  }
 
   function openAdjustment(product: BranchProduct, type: "add" | "remove") {
     setSelectedProduct(product);
@@ -480,57 +548,81 @@ export default function InventoryPage() {
         className="space-y-6"
       >
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Inventory Management</h1>
             <div className="flex items-center gap-2 mt-1">
               <Building2 className="w-4 h-4 text-primary" />
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Showing stock for <span className="font-medium text-foreground">{currentBranch.name}</span>
               </p>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={exportCountSheet} disabled={loading || products.length === 0}>
+              <Download className="w-4 h-4 mr-2" /> Count Sheet
+            </Button>
+            <Button size="sm" onClick={() => countFileRef.current?.click()} disabled={uploadingCount || loading}>
+              <Upload className="w-4 h-4 mr-2" /> {uploadingCount ? "Updating..." : "Upload Counts"}
+            </Button>
+            <input ref={countFileRef} type="file" accept=".csv" className="hidden" onChange={handleCountUpload} />
+          </div>
+        </div>
+
+        {/* Quick links */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { to: "/serial-numbers", label: "Serial Numbers", icon: Hash },
+            { to: "/stock-transfers", label: "Transfers", icon: ArrowRightLeft },
+            { to: "/barcode-labels", label: "Barcode Labels", icon: Tags },
+            { to: "/inventory-valuation", label: "Valuation", icon: Layers },
+          ].map(l => (
+            <Button key={l.to} asChild variant="secondary" size="sm">
+              <Link to={l.to}><l.icon className="w-4 h-4 mr-2" />{l.label}</Link>
+            </Button>
+          ))}
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Products</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Products</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{products.length}</div>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{products.length}</div>
             </CardContent>
           </Card>
           
           <Card className={lowStockCount > 0 ? "border-warning" : ""}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Low Stock</CardTitle>
               <TrendingDown className="h-4 w-4 text-warning" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">{lowStockCount}</div>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold text-warning">{lowStockCount}</div>
             </CardContent>
           </Card>
           
           <Card className={outOfStockCount > 0 ? "border-destructive" : ""}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Out of Stock</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Out of Stock</CardTitle>
               <AlertTriangle className="h-4 w-4 text-destructive" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{outOfStockCount}</div>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold text-destructive">{outOfStockCount}</div>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Value</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Inventory Value</CardTitle>
               <TrendingUp className="h-4 w-4 text-success" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">${totalValue.toLocaleString()}</div>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold text-success">${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+              <p className="text-xs text-muted-foreground">{fmtLrd(usdToLrd(totalValue))}</p>
             </CardContent>
           </Card>
         </div>
@@ -577,6 +669,37 @@ export default function InventoryPage() {
                 </p>
               </div>
             ) : (
+              <>
+              {/* Compact cards for small screens */}
+              <div className="md:hidden divide-y">
+                {filteredProducts.map((product) => (
+                  <div key={product.product_id} className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{product.sku || "-"}</p>
+                      </div>
+                      {getStockBadge(product)}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm">
+                        <span className="font-mono font-bold text-lg">{product.stock_quantity}</span>
+                        <span className="text-muted-foreground"> / min {product.low_stock_threshold}</span>
+                        <span className="text-muted-foreground"> · ${(product.stock_quantity * product.unit_price).toFixed(2)}</span>
+                      </p>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => openAdjustment(product, "add")} title="Add stock"><Plus className="w-4 h-4" /></Button>
+                        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => openAdjustment(product, "remove")} disabled={product.stock_quantity === 0} title="Remove stock"><Minus className="w-4 h-4" /></Button>
+                        {otherBranches.length > 0 && (
+                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => openTransfer(product)} disabled={product.stock_quantity === 0} title="Transfer"><ArrowRightLeft className="w-4 h-4" /></Button>
+                        )}
+                        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => openHistory(product)} title="History"><History className="w-4 h-4" /></Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -658,6 +781,8 @@ export default function InventoryPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              </>
             )}
           </CardContent>
         </Card>
