@@ -42,6 +42,20 @@ import { BarcodeDialog, generateBarcodeValue } from "@/components/BarcodeGenerat
 import JsBarcode from "jsbarcode";
 import jsPDF from "jspdf";
 
+const TEMPLATE_COLUMNS = ["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate", "Category", "Branch"];
+const TEMPLATE_EXAMPLES = [
+            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0", "Laptops", ""],
+            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0", "Laptops", ""],
+            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0", "Drinks", ""],
+          ];
+function downloadProductTemplate() {
+  const content = [TEMPLATE_COLUMNS, ...TEMPLATE_EXAMPLES].map(r => r.map(c => /[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c).join(",")).join("\n") + "\n";
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
+  link.download = "product_upload_template.csv";
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -337,6 +351,10 @@ export default function ProductsPage() {
                <Download className="w-4 h-4 mr-2" />
                Export CSV
              </Button>
+             <Button variant="outline" onClick={downloadProductTemplate}>
+               <Download className="w-4 h-4 mr-2" />
+               Upload Template
+             </Button>
              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                <Upload className="w-4 h-4 mr-2" />
                Import
@@ -530,12 +548,8 @@ export default function ProductsPage() {
          onOpenChange={setIsImportOpen}
          title="Import Products"
          description="Upload a CSV file to bulk import products. Required column: Name. New categories are created automatically; Branch must match a branch name; opening stock goes to that branch. Check the preview — red rows are skipped."
-         templateColumns={["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate", "Category", "Branch"]}
-          templateExamples={[
-            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0", "Laptops", ""],
-            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0", "Laptops", ""],
-            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0", "Drinks", ""],
-          ]}
+         templateColumns={TEMPLATE_COLUMNS}
+          templateExamples={TEMPLATE_EXAMPLES}
          parseData={parseProductsCSV}
          onImport={handleImport}
          validateRow={validateImportRow}
