@@ -35,7 +35,7 @@ const heroFeatures = [
 ];
 
 const testimonials = [
-  { name: 'Sarah K.', role: 'Retail Owner', text: 'POSFlow transformed how we manage our 3 stores. Stock transfers are seamless.' },
+  { name: 'Sarah K.', role: 'Retail Owner', text: 'Afrimore BMS transformed how we manage our 3 stores. Stock transfers are seamless.' },
   { name: 'James M.', role: 'Finance Manager', text: 'The invoicing and financial reporting saves us hours every week.' },
   { name: 'Aisha N.', role: 'Operations Lead', text: 'Finally a system that handles multi-branch inventory properly.' },
 ];
@@ -65,7 +65,7 @@ export default function LandingPage() {
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
               <Store className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">POSFlow</span>
+            <span className="text-xl font-bold text-foreground">AFRIMORE BMS</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
@@ -124,7 +124,7 @@ export default function LandingPage() {
               Everything you need to run your business
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              From point of sale to financial statements, POSFlow covers the full spectrum of business operations.
+              From point of sale to financial statements, Afrimore BMS covers the full spectrum of business operations.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -285,7 +285,7 @@ export default function LandingPage() {
             Ready to streamline your business?
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Join hundreds of businesses using POSFlow. Start your 14-day free trial today.
+            Join hundreds of businesses using Afrimore BMS. Start your 14-day free trial today.
           </p>
           <Button size="lg" className="text-base h-12 px-10" onClick={() => navigate('/auth?mode=signup')}>
             Start Free Trial <ArrowRight className="w-5 h-5 ml-2" />
@@ -298,10 +298,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <Store className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">POSFlow</span>
+            <span className="font-semibold text-foreground">AFRIMORE BMS</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} POSFlow. All rights reserved.
+            © {new Date().getFullYear()} Afrimore Business Management System. All rights reserved.
           </p>
         </div>
       </footer>

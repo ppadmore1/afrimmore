@@ -295,7 +295,7 @@ export default function FinancialStatementsPage() {
   const totalAssets = (data?.inventoryValue || 0) + (data?.accountsReceivable || 0);
 
   const branchLabel = branchFilter === "all" ? "All Branches" : branches.find(b => b.id === branchFilter)?.name || "Branch";
-  const companyName = branchFilter === "all" ? "POSFlow Business" : branchLabel;
+  const companyName = branchFilter === "all" ? "Afrimore Business Management System" : branchLabel;
 
   function handlePrint() {
     window.print();

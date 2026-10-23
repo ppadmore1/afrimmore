@@ -70,7 +70,7 @@ export default function InstallPage() {
         className="max-w-2xl mx-auto space-y-6"
       >
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Install AfrimMore</h1>
+          <h1 className="text-3xl font-bold text-foreground">Install AFRIMORE BMS</h1>
           <p className="text-muted-foreground">
             Install the app on your device for offline access and a native experience
           </p>
@@ -151,7 +151,7 @@ export default function InstallPage() {
               {deferredPrompt ? (
                 <Button onClick={handleInstall} className="w-full" size="lg">
                   <Download className="w-4 h-4 mr-2" />
-                  Install AfrimMore
+                  Install AFRIMORE BMS
                 </Button>
               ) : isIOS ? (
                 <div className="space-y-4">
