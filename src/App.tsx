@@ -71,6 +71,8 @@ import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import JournalEntriesPage from "./pages/JournalEntriesPage";
 import TrialBalancePage from "./pages/TrialBalancePage";
 import LandingPage from "./pages/LandingPage";
+import ShopPage from "./pages/ShopPage";
+import OnlineOrdersPage from "./pages/OnlineOrdersPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SuperAdminPage from "./pages/SuperAdminPage";
 const queryClient = new QueryClient();
@@ -88,6 +90,8 @@ const App = () => (
               <Routes>
                 <Route path="/landing" element={<LandingPage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/shop/:slug" element={<ShopPage />} />
+                <Route path="/online-orders" element={<ProtectedRoute><OnlineOrdersPage /></ProtectedRoute>} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />

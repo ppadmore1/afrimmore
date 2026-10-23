@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 221 83% 53%;
+    --primary: 108 96% 20%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96%;
@@ -32,30 +32,30 @@
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --ring: 108 96% 20%;
 
     --radius: 0.75rem;
 
     /* Custom tokens */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 60 100% 50%;
+    --warning-foreground: 222 47% 11%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
 
     /* Sidebar */
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 108 60% 12%;
     --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 108 96% 20%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 47% 18%;
     --sidebar-accent-foreground: 210 40% 96%;
     --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 108 96% 20%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 83% 63%));
+    --gradient-primary: linear-gradient(135deg, hsl(108 96% 20%), hsl(108 80% 30%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
     --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(210 20% 98%));
   }
@@ -70,7 +70,7 @@
     --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 221 83% 58%;
+    --primary: 108 70% 40%;
     --primary-foreground: 222 47% 11%;
 
     --secondary: 222 47% 15%;
@@ -87,7 +87,7 @@
 
     --border: 222 47% 18%;
     --input: 222 47% 18%;
-    --ring: 221 83% 58%;
+    --ring: 108 70% 40%;
 
     --success: 142 76% 42%;
     --warning: 38 92% 50%;

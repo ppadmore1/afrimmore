@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { DualCurrencyCash } from "@/components/pos/DualCurrencyCash";
+import { fmtLrd, usdToLrd } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -1047,11 +1049,13 @@ export default function POSPage() {
                     placeholder="0.00"
                     readOnly
                   />
+                  <DualCurrencyCash total={total} onUsdTotalChange={(v) => setAmountReceived(v.toFixed(2))} />
                   {parseFloat(amountReceived) >= total && (
                     <div className="flex justify-between p-3 rounded-xl bg-[hsl(142,76%,36%)]/10 border border-[hsl(142,76%,36%)]/30">
                       <span className="font-semibold text-[hsl(142,76%,42%)]">Change</span>
-                      <span className="font-bold font-mono text-[hsl(142,76%,42%)]">
+                      <span className="font-bold font-mono text-[hsl(142,76%,42%)] text-right">
                         ${Math.max(0, parseFloat(amountReceived) - total).toFixed(2)}
+                        <span className="block text-xs opacity-80">or {fmtLrd(usdToLrd(Math.max(0, parseFloat(amountReceived) - total)))}</span>
                       </span>
                     </div>
                   )}
