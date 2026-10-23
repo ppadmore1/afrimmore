@@ -546,119 +546,18 @@ export default function PurchaseOrderForm() {
 
     setReceiving(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id;
+      if (!branchId) throw new Error("Choose the branch receiving these goods first.");
+      const { error: rpcError } = await (supabase.rpc as any)("receive_purchase_order", {
+        p_po_id: id,
+        p_branch_id: branchId,
+        p_items: itemsToReceive.map((i) => ({ product_id: i.product_id, quantity: i.receiving_now })),
+        p_notes: receiveNotes || null,
+      });
+      if (rpcError) throw rpcError;
 
-      // Update each item's quantity_received and product stock
-      for (const item of itemsToReceive) {
-        const poItem = items.find((i) => i.product_id === item.product_id);
-        if (!poItem?.id) continue;
-
-        const newReceived = item.previously_received + item.receiving_now;
-
-        // Update PO item
-        await supabase
-          .from("purchase_order_items")
-          .update({ quantity_received: newReceived })
-          .eq("id", poItem.id);
-
-        // Update product stock
-        await supabase
-          .from("products")
-          .update({
-            stock_quantity: supabase.rpc ? undefined : undefined,
-          })
-          .eq("id", item.product_id);
-
-        // Actually increment stock using raw update
-        const { data: product } = await supabase
-          .from("products")
-          .select("stock_quantity")
-          .eq("id", item.product_id)
-          .single();
-
-        if (product) {
-          await supabase
-            .from("products")
-            .update({ stock_quantity: product.stock_quantity + item.receiving_now })
-            .eq("id", item.product_id);
-        }
-
-        // Update branch stock if specified
-        if (branchId) {
-          const { data: branchStock } = await supabase
-            .from("product_branches")
-            .select("id, stock_quantity")
-            .eq("product_id", item.product_id)
-            .eq("branch_id", branchId)
-            .single();
-
-          if (branchStock) {
-            await supabase
-              .from("product_branches")
-              .update({ stock_quantity: branchStock.stock_quantity + item.receiving_now })
-              .eq("id", branchStock.id);
-          } else {
-            await supabase.from("product_branches").insert({
-              product_id: item.product_id,
-              branch_id: branchId,
-              stock_quantity: item.receiving_now,
-            });
-          }
-        }
-
-        // Record stock movement
-        await supabase.from("stock_movements").insert({
-          product_id: item.product_id,
-          quantity: item.receiving_now,
-          movement_type: "purchase",
-          reference_type: "purchase_order",
-          reference_id: id,
-          branch_id: branchId || null,
-          created_by: userId,
-          notes: `Received from PO`,
-        });
-      }
-
-      // Create goods receipt record
-      const { data: receipt, error: receiptError } = await supabase
-        .from("goods_receipts")
-        .insert({
-          purchase_order_id: id,
-          received_by: userId,
-          notes: receiveNotes || null,
-        })
-        .select()
-        .single();
-
-      if (receiptError) throw receiptError;
-
-      // Create receipt items
-      const { error: receiptItemsError } = await supabase
-        .from("goods_receipt_items")
-        .insert(
-          itemsToReceive.map((item) => ({
-            goods_receipt_id: receipt.id,
-            product_id: item.product_id,
-            quantity_received: item.receiving_now,
-          }))
-        );
-
-      if (receiptItemsError) throw receiptItemsError;
-
-      // Check if all items are fully received
       const allReceived = receiveItems.every(
         (item) => item.previously_received + item.receiving_now >= item.ordered
       );
-
-      // Update PO status and received_date
-      await supabase
-        .from("purchase_orders")
-        .update({
-          status: allReceived ? "received" : status,
-          received_date: allReceived ? format(new Date(), "yyyy-MM-dd") : null,
-        })
-        .eq("id", id);
 
       toast({
         title: "Goods received successfully",

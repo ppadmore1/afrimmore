@@ -5,6 +5,20 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getProducts, type Product } from "@/lib/supabase-db";
+import { supabase } from "@/integrations/supabase/client";
+import { useBranch } from "@/contexts/BranchContext";
+
+async function getBranchScopedProducts(branchId: string | undefined): Promise<Product[]> {
+  const products = await getBranchScopedProducts(currentBranch?.id);
+  if (!branchId) return products;
+  const { data } = await supabase.from("product_branches")
+    .select("product_id, stock_quantity, low_stock_threshold").eq("branch_id", branchId);
+  const map = new Map((data || []).map((r: any) => [r.product_id, r]));
+  return products.filter((p: any) => p.is_active !== false).map((p) => {
+    const r: any = map.get(p.id);
+    return { ...p, stock_quantity: r?.stock_quantity ?? 0, low_stock_threshold: r?.low_stock_threshold ?? p.low_stock_threshold };
+  });
+}
 
 interface LowStockAlertProps {
   onDismiss?: () => void;
@@ -15,12 +29,13 @@ export function LowStockAlert({ onDismiss, showDismiss = true }: LowStockAlertPr
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { currentBranch } = useBranch();
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     async function checkStock() {
       try {
-        const products = await getProducts();
+        const products = await getBranchScopedProducts(currentBranch?.id);
         const lowStock = products.filter(p => 
           p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || 10)
         );
@@ -35,7 +50,7 @@ export function LowStockAlert({ onDismiss, showDismiss = true }: LowStockAlertPr
       }
     }
     checkStock();
-  }, []);
+  }, [currentBranch?.id]);
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -111,11 +126,12 @@ export function useLowStockCheck() {
   const [lowStockCount, setLowStockCount] = useState(0);
   const [outOfStockCount, setOutOfStockCount] = useState(0);
   const [criticalProducts, setCriticalProducts] = useState<Product[]>([]);
+  const { currentBranch } = useBranch();
 
   useEffect(() => {
     async function checkStock() {
       try {
-        const products = await getProducts();
+        const products = await getBranchScopedProducts(currentBranch?.id);
         const lowStock = products.filter(p => 
           p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || 10)
         );
@@ -129,7 +145,7 @@ export function useLowStockCheck() {
       }
     }
     checkStock();
-  }, []);
+  }, [currentBranch?.id]);
 
   return { lowStockCount, outOfStockCount, criticalProducts, hasAlerts: lowStockCount > 0 || outOfStockCount > 0 };
 }

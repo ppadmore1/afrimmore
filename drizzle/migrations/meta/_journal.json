@@ -99,6 +99,13 @@
       "when": 1792793324239,
       "tag": "0013_fix_branch_report_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792795510207,
+      "tag": "0014_erp_inventory_refinements",
+      "breakpoints": true
     }
   ]
 }
