@@ -120,39 +120,15 @@ export default function StockTransfersPage() {
   }
 
   async function updateStatus(transfer: Transfer, newStatus: string) {
-    const updates: any = { status: newStatus };
-    if (newStatus === "approved") updates.approved_by = user?.id;
-    if (newStatus === "in_transit") updates.shipped_at = new Date().toISOString();
-    if (newStatus === "received") updates.received_at = new Date().toISOString();
-
-    const { error } = await supabase.from("stock_transfers").update(updates).eq("id", transfer.id);
-    if (error) { toast.error(error.message); return; }
-
-    // If received, update stock quantities
-    if (newStatus === "received") {
-      for (const item of detailItems) {
-        // Decrease from source branch
-        const { data: srcPb } = await supabase.from("product_branches")
-          .select("id, stock_quantity").eq("product_id", item.product_id).eq("branch_id", transfer.from_branch_id).single();
-        if (srcPb) {
-          await supabase.from("product_branches").update({ stock_quantity: srcPb.stock_quantity - item.quantity_requested }).eq("id", srcPb.id);
-        }
-        // Increase at destination branch (upsert)
-        const { data: dstPb } = await supabase.from("product_branches")
-          .select("id, stock_quantity").eq("product_id", item.product_id).eq("branch_id", transfer.to_branch_id).single();
-        if (dstPb) {
-          await supabase.from("product_branches").update({ stock_quantity: dstPb.stock_quantity + item.quantity_requested }).eq("id", dstPb.id);
-        } else {
-          await supabase.from("product_branches").insert({ product_id: item.product_id, branch_id: transfer.to_branch_id, stock_quantity: item.quantity_requested });
-        }
-        // Record stock movements
-        await supabase.from("stock_movements").insert([
-          { product_id: item.product_id, quantity: -item.quantity_requested, movement_type: "transfer_out", reference_type: "stock_transfer", reference_id: transfer.id, branch_id: transfer.from_branch_id, created_by: user?.id, notes: `Transfer ${transfer.transfer_number} to ${getBranchName(transfer.to_branch_id)}` },
-          { product_id: item.product_id, quantity: item.quantity_requested, movement_type: "transfer_in", reference_type: "stock_transfer", reference_id: transfer.id, branch_id: transfer.to_branch_id, created_by: user?.id, notes: `Transfer ${transfer.transfer_number} from ${getBranchName(transfer.from_branch_id)}` },
-        ]);
-        // Update transfer items
-        await supabase.from("stock_transfer_items").update({ quantity_shipped: item.quantity_requested, quantity_received: item.quantity_requested }).eq("id", item.id);
-      }
+    if (newStatus === "in_transit" || newStatus === "received") {
+      const fn = newStatus === "in_transit" ? "dispatch_stock_transfer" : "receive_stock_transfer";
+      const { error } = await (supabase.rpc as any)(fn, { p_transfer_id: transfer.id });
+      if (error) { toast.error(error.message); return; }
+    } else {
+      const updates: any = { status: newStatus };
+      if (newStatus === "approved") updates.approved_by = user?.id;
+      const { error } = await supabase.from("stock_transfers").update(updates).eq("id", transfer.id);
+      if (error) { toast.error(error.message); return; }
     }
 
     toast.success(`Transfer ${newStatus.replace("_", " ")}`);
@@ -324,10 +300,10 @@ export default function StockTransfersPage() {
                     </>
                   )}
                   {selectedTransfer.status === "approved" && (
-                    <Button onClick={() => updateStatus(selectedTransfer, "in_transit")}><Truck className="w-4 h-4 mr-1" /> Mark Shipped</Button>
+                    <Button onClick={() => updateStatus(selectedTransfer, "in_transit")}><Truck className="w-4 h-4 mr-1" /> Dispatch (deduct from source)</Button>
                   )}
                   {selectedTransfer.status === "in_transit" && (
-                    <Button onClick={() => updateStatus(selectedTransfer, "received")}><Package className="w-4 h-4 mr-1" /> Mark Received</Button>
+                    <Button onClick={() => updateStatus(selectedTransfer, "received")}><Package className="w-4 h-4 mr-1" /> Confirm Received (add to destination)</Button>
                   )}
                 </DialogFooter>
               </div>
