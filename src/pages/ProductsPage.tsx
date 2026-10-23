@@ -132,6 +132,7 @@ export default function ProductsPage() {
    const handleImport = async (data: Partial<Product>[]): Promise<{ success: number; failed: number }> => {
      let success = 0;
      let failed = 0;
+     const newCats: Record<string, { id: string }> = {};
  
      for (const row of data) {
        if (!row.name) {
@@ -140,7 +141,12 @@ export default function ProductsPage() {
        }
  
        const r = row as any;
-       const cat = r.category ? categories.find(c => c.name.trim().toLowerCase() === String(r.category).trim().toLowerCase()) : undefined;
+       let cat: { id: string } | undefined = r.category ? (categories.find(c => c.name.trim().toLowerCase() === String(r.category).trim().toLowerCase()) || newCats[String(r.category).trim().toLowerCase()]) : undefined;
+       if (r.category && !cat) {
+         // Category not in the app yet: create it once
+         const { data: nc } = await supabase.from("categories").insert({ name: String(r.category).trim() }).select("id").single();
+         if (nc) { cat = nc; newCats[String(r.category).trim().toLowerCase()] = nc; }
+       }
        const br = r.branch ? branchList.find(b => b.name.trim().toLowerCase() === String(r.branch).trim().toLowerCase()) : undefined;
        const productData = {
          name: row.name,
@@ -190,7 +196,6 @@ export default function ProductsPage() {
      if (bc && products.some(p => norm(p.barcode) === bc)) return `Barcode ${r.barcode} already exists`;
      if (sku && all.slice(0, i).some(o => norm((o as any).sku) === sku)) return "SKU repeated in file";
      if (bc && all.slice(0, i).some(o => norm((o as any).barcode) === bc)) return "Barcode repeated in file";
-     if (r.category && !categories.some(c => c.name.trim().toLowerCase() === String(r.category).trim().toLowerCase())) return `Category "${r.category}" not found`;
      if (r.branch && !branchList.some(b => b.name.trim().toLowerCase() === String(r.branch).trim().toLowerCase())) return `Branch "${r.branch}" not found`;
      return null;
    };
@@ -524,18 +529,18 @@ export default function ProductsPage() {
          open={isImportOpen}
          onOpenChange={setIsImportOpen}
          title="Import Products"
-         description="Upload a CSV file to bulk import products. Required column: Name. Category and Branch must match names already in the app; opening stock goes to that branch. Check the preview — red rows are skipped."
+         description="Upload a CSV file to bulk import products. Required column: Name. New categories are created automatically; Branch must match a branch name; opening stock goes to that branch. Check the preview — red rows are skipped."
          templateColumns={["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate", "Category", "Branch"]}
           templateExamples={[
-            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0", "", ""],
-            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0", "", ""],
-            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0", "", ""],
+            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0", "Laptops", ""],
+            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0", "Laptops", ""],
+            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0", "Drinks", ""],
           ]}
          parseData={parseProductsCSV}
          onImport={handleImport}
          validateRow={validateImportRow}
          previewColumns={[{ key: "name", label: "Name" }, { key: "sku", label: "SKU" }, { key: "barcode", label: "Barcode" }, { key: "unit_price", label: "Price" }, { key: "stock_quantity", label: "Stock" }, { key: "category", label: "Category" }, { key: "branch", label: "Branch" }]}
-         onComplete={loadProducts}
+         onComplete={() => { loadProducts(); loadCategories(); }}
        />
     </AppLayout>
   );
