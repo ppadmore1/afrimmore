@@ -33,6 +33,9 @@ import {
 } from "@/lib/supabase-db";
 import { format } from "date-fns";
 import { BranchPerformance } from "@/components/dashboard/BranchPerformance";
+import { BranchSubmissions } from "@/components/dashboard/BranchSubmissions";
+import { Navigate } from "react-router-dom";
+import { useUserRole, isHeadOffice } from "@/hooks/useUserRole";
 
 const container = {
   hidden: { opacity: 0 },
@@ -49,7 +52,19 @@ const item = {
   show: { opacity: 1, y: 0 }
 };
 
+// Head office (owner/admin/executive/accountant) sees the company-wide dashboard.
+// Cashiers land on the POS; other branch staff land on their own branch page.
 export default function Dashboard() {
+  const userRole = useUserRole();
+  if (userRole.loading) return null;
+  if (!isHeadOffice(userRole.roles)) {
+    const onlyCashier = userRole.roles.length > 0 && userRole.roles.every((r) => r === "cashier");
+    return <Navigate to={onlyCashier ? "/pos" : "/my-branch"} replace />;
+  }
+  return <HQDashboard />;
+}
+
+function HQDashboard() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -223,6 +238,7 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={item}>
+          <BranchSubmissions />
           <BranchPerformance />
         </motion.div>
 

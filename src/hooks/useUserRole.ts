@@ -10,6 +10,9 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 };
 const ORDER: AppRole[] = ['owner','admin','executive','branch_manager','accountant','inventory_officer','staff','cashier'];
 export const primaryRoleLabel = (roles: AppRole[]) => { const r = ORDER.find(o => roles.includes(o)); return r ? ROLE_LABELS[r] : 'User'; };
+/** Roles allowed to see company-wide (all-branch) figures. */
+export const HQ_ROLES: AppRole[] = ['owner', 'admin', 'executive', 'accountant'];
+export const isHeadOffice = (roles: string[]) => roles.some(r => (HQ_ROLES as string[]).includes(r));
 
 interface UserRoleState {
   roles: AppRole[];
