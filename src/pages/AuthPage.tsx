@@ -250,8 +250,8 @@ export default function AuthPage() {
                 <Store className="w-7 h-7" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">POSFlow</h1>
-                <p className="text-primary-foreground/70">Business Management</p>
+                <h1 className="text-3xl font-bold">AFRIMORE BMS</h1>
+                <p className="text-primary-foreground/70">Afrimore Business Management System</p>
               </div>
             </div>
             
@@ -295,8 +295,8 @@ export default function AuthPage() {
               <Store className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">POSFlow</h1>
-              <p className="text-sm text-muted-foreground">Business Management</p>
+              <h1 className="text-2xl font-bold text-foreground">AFRIMORE BMS</h1>
+              <p className="text-sm text-muted-foreground">Afrimore Business Management System</p>
             </div>
           </div>
 

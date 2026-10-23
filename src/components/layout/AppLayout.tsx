@@ -302,8 +302,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               <ShoppingCart className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-sidebar-foreground">POSFlow</h1>
-              <p className="text-xs text-sidebar-foreground/60">Business Management</p>
+              <h1 className="font-bold text-lg text-sidebar-foreground">AFRIMORE BMS</h1>
+              <p className="text-xs text-sidebar-foreground/60">Business Management System</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -439,7 +439,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <div className="w-8 h-8 shrink-0 rounded-lg gradient-primary flex items-center justify-center">
                 <ShoppingCart className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground hidden min-[380px]:inline truncate">POSFlow</span>
+              <span className="font-bold text-foreground hidden min-[380px]:inline truncate">AFRIMORE BMS</span>
             </Link>
           </div>
           <div className="flex items-center gap-1 shrink-0">

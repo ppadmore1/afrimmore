@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "AfrimMore - Business Management",
-        short_name: "AfrimMore",
-        description: "Multi-branch document generation and business management platform",
+        name: "Afrimore Business Management System",
+        short_name: "AFRIMORE BMS",
+        description: "Afrimore Business Management System — POS, inventory, invoicing and reporting for multi-branch businesses",
         theme_color: "#3B82F6",
         background_color: "#ffffff",
         display: "standalone",
