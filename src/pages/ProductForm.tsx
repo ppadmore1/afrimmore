@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { landedUnitCost } from "../../supabase/functions/_shared/forecast";
 import { ArrowLeft, Save, Wand2, Barcode, Plus, Trash2, Truck, Star } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -292,7 +293,12 @@ export default function ProductForm() {
     setSaving(true);
 
     try {
-      const productData = {
+      if (minPrice && Number(minPrice) > Number(unitPrice)) {
+        toast({ title: "Minimum price is higher than the selling price", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      const productData: any = {
         name: name.trim(),
         description: description.trim() || null,
         sku: sku.trim() || null,
