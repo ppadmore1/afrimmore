@@ -121,6 +121,7 @@ const navGroups: NavGroup[] = [
       { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder", minRole: "staff" },
       { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation", minRole: "admin" },
       { icon: Layers, label: "Batch Tracking", path: "/batch-tracking", minRole: "staff" },
+      { icon: Tag, label: "Serial Numbers", path: "/serial-numbers", minRole: "staff" },
       { icon: PackageCheck, label: "Bundle Items", path: "/bundle-items", minRole: "staff" },
       { icon: MapPin, label: "Warehouse Locations", path: "/warehouse-locations", minRole: "staff" },
     ],
@@ -208,7 +209,7 @@ function hasMinRole(userRoles: { isAdmin: boolean; isStaff: boolean; isCashier: 
 // admin/owner/staff/branch_manager role (those see everything their level allows).
 const COMMON = ["/", "/time-tracking", "/branch-insights"];
 const SPECIALIST_PATHS: Record<string, string[]> = {
-  inventory_officer: ["/products", "/barcode-labels", "/inventory", "/stock-transfers", "/inventory-adjustments", "/branch-stock", "/reorder", "/batch-tracking", "/bundle-items", "/warehouse-locations", "/suppliers", "/purchase-orders", "/my-branch"],
+  inventory_officer: ["/products", "/barcode-labels", "/inventory", "/stock-transfers", "/inventory-adjustments", "/branch-stock", "/reorder", "/batch-tracking", "/serial-numbers", "/bundle-items", "/warehouse-locations", "/suppliers", "/purchase-orders", "/my-branch"],
   accountant: ["/invoices", "/quotations", "/receipts", "/credit-notes", "/recurring-invoices", "/customer-statements", "/customers", "/vendor-bills", "/chart-of-accounts", "/journal-entries", "/trial-balance", "/payments", "/expenses", "/financial-statements", "/aging-reports", "/bank-reconciliation", "/multi-currency", "/tax-management", "/inventory-valuation", "/reports", "/daily-cash-up", "/cash-up-dashboard", "/payroll-reports"],
   executive: ["/cash-up-dashboard", "/daily-cash-up", "/reports", "/branch-reports", "/financial-statements", "/aging-reports", "/inventory-valuation", "/branch-stock", "/admin", "/branch-grades", "/audit-visits", "/payroll-reports"],
 };
@@ -217,6 +218,28 @@ function specialistPaths(roles: string[]): Set<string> | null {
   const mine = roles.filter((r) => SPECIALIST_PATHS[r]);
   if (mine.length === 0) return null;
   return new Set([...COMMON, ...mine.flatMap((r) => SPECIALIST_PATHS[r])]);
+}
+
+type RoleState = { isAdmin: boolean; isStaff: boolean; isCashier: boolean; roles: string[] };
+function itemVisible(item: NavItem, userRole: RoleState): boolean {
+  if (!hasMinRole(userRole, item.minRole || 'staff')) {
+    // Specialist roles may also see admin-level pages that belong to their job
+    const extra = specialistPaths(userRole.roles);
+    return !!extra && extra.has(item.path) && item.minRole === 'admin';
+  }
+  const allowed = specialistPaths(userRole.roles);
+  return !allowed || allowed.has(item.path);
+}
+const ALL_NAV_ITEMS: NavItem[] = navGroups.flatMap((g) => g.items);
+// Page lock: the same rules as the menu, applied to typed-in addresses.
+// Sub-pages (e.g. /products/new) follow their parent menu page.
+export function canAccessPath(pathname: string, userRole: RoleState): boolean {
+  if (pathname === "/") return true;
+  const item = ALL_NAV_ITEMS
+    .filter((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(i.path + "/")))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  if (!item) return true;
+  return itemVisible(item, userRole);
 }
 
 interface AppLayoutProps {
@@ -267,16 +290,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const isGroupActive = (group: NavGroup) =>
     group.items.some((item) => isItemActive(item.path));
 
-  const filterItems = (items: NavItem[]) =>
-    items.filter((item) => {
-      if (!hasMinRole(userRole, item.minRole || 'staff')) {
-        // Specialist roles may also see admin-level pages that belong to their job
-        const extra = specialistPaths(userRole.roles);
-        return !!extra && extra.has(item.path) && (item.minRole === 'admin');
-      }
-      const allowed = specialistPaths(userRole.roles);
-      return !allowed || allowed.has(item.path);
-    });
+  const filterItems = (items: NavItem[]) => items.filter((item) => itemVisible(item, userRole));
 
   return (
     <div className="flex min-h-screen w-full bg-background">

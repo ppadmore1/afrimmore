@@ -57,6 +57,20 @@
       "when": 1792770018176,
       "tag": "0007_remove_tenant_user",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792770957924,
+      "tag": "0008_product_serials",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792771363402,
+      "tag": "0009_user_roles_own_read",
+      "breakpoints": true
     }
   ]
 }

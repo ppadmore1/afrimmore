@@ -1,2 +1,5 @@
 - Public storefront (/shop/:slug) reads and writes only via SECURITY DEFINER RPCs (get_shop_catalog, place_online_order); why: anon users must never touch tenant tables directly and prices/stock are enforced server-side.
 - Specialist roles (inventory_officer, accountant, executive) get a per-role menu allowlist in AppLayout (SPECIALIST_PATHS); why: job-specific menus without changing the admin/staff/cashier levels. Removing a user goes through the remove_tenant_user RPC; why: it clears roles, branches and business membership in one admin-checked step.
+- Page access is enforced in ProtectedRoute via canAccessPath (AppLayout nav rules, sub-pages inherit their parent menu item); why: menu hiding alone let users type restricted URLs.
+- Per-unit serial numbers live in product_serials; the POS matches scanned serials and marks them sold with the sale; why: track individual laptops/phones like Zoho without one product per unit.
+- Product CSV import validates every row in a preview (ImportDialog validateRow) and only saves OK rows; why: bad rows must be visible and downloadable before anything is written.

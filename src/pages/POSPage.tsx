@@ -111,6 +111,16 @@ export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [serialIndex, setSerialIndex] = useState<Map<string, { id: string; product_id: string; serial_number: string }>>(new Map());
+  const [cartSerials, setCartSerials] = useState<{ id: string; product_id: string; serial_number: string }[]>([]);
+  useEffect(() => {
+    supabase.from("product_serials").select("id, product_id, serial_number").eq("status", "in_stock").limit(20000)
+      .then(({ data }) => {
+        const m = new Map<string, { id: string; product_id: string; serial_number: string }>();
+        (data || []).forEach((r) => m.set((r.serial_number || "").replace(/\s+/g, "").toUpperCase(), r));
+        setSerialIndex(m);
+      });
+  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -347,14 +357,26 @@ export default function POSPage() {
   const findByCode = (raw: string) => {
     const c = norm(raw);
     if (!c) return undefined;
-    return products.find((p) => norm(p.barcode) === c || norm(p.sku) === c);
+    return products.find((p) => norm(p.barcode) === c || norm(p.sku) === c)
+      || (serialIndex.get(c) ? products.find((p) => p.id === serialIndex.get(c)!.product_id) : undefined);
+  };
+  // If the code is a unit serial number, remember it so it is marked sold with the sale
+  const noteSerial = (raw: string) => {
+    const s = serialIndex.get(norm(raw));
+    if (!s) return true;
+    if (cartSerials.some((x) => x.id === s.id)) {
+      toast({ title: "Already scanned", description: `Serial ${s.serial_number} is already in the cart`, variant: "destructive" });
+      return false;
+    }
+    setCartSerials((prev) => [...prev, s]);
+    return true;
   };
 
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const product = findByCode(barcodeInput);
     if (product) {
-      addToCart(product);
+      if (noteSerial(barcodeInput)) addToCart(product);
       setBarcodeInput("");
     } else {
       toast({
@@ -368,7 +390,7 @@ export default function POSPage() {
   const handleBarcodeScan = (code: string) => {
     const product = findByCode(code);
     if (product) {
-      addToCart(product);
+      if (noteSerial(code)) addToCart(product);
     } else {
       toast({
         title: "Product Not Found",
@@ -502,6 +524,13 @@ export default function POSPage() {
       const saleData = result[0];
       const saleNumber = saleData.sale_number;
       const serverChangeAmount = Number(saleData.change_amount) || 0;
+      // Mark scanned serial numbers as sold (only those still in the cart)
+      const soldSerials = cartSerials.filter((s) => cart.some((c) => c.product.id === s.product_id));
+      if (soldSerials.length) {
+        await supabase.from("product_serials").update({ status: "sold", pos_sale_id: saleData.sale_id, sold_at: new Date().toISOString(), branch_id: currentBranch?.id || null }).in("id", soldSerials.map((s) => s.id));
+        setSerialIndex((prev) => { const m = new Map(prev); soldSerials.forEach((s) => m.delete(norm(s.serial_number))); return m; });
+      }
+      setCartSerials([]);
  
        // Record discount code usage if applied
        if (appliedDiscount) {

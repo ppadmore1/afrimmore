@@ -22,6 +22,9 @@
    parseData: (csvText: string) => { data: Partial<T>[]; errors: string[] };
    onImport: (data: Partial<T>[]) => Promise<{ success: number; failed: number }>;
    onComplete: () => void;
+   /** Optional per-row check shown as a preview before saving. Return a reason to reject, or null if OK. */
+   validateRow?: (row: Partial<T>, index: number, all: Partial<T>[]) => string | null;
+   previewColumns?: { key: keyof T | string; label: string }[];
  }
  
  export function ImportDialog<T>({
@@ -34,6 +37,8 @@
    parseData,
    onImport,
    onComplete,
+   validateRow,
+   previewColumns,
  }: ImportDialogProps<T>) {
    const [file, setFile] = useState<File | null>(null);
    const [parsedData, setParsedData] = useState<Partial<T>[]>([]);
@@ -55,12 +60,26 @@
      setParseErrors(errors);
    };
  
+   const checks = validateRow ? parsedData.map((r, i) => validateRow(r, i, parsedData)) : parsedData.map(() => null);
+   const validRows = parsedData.filter((_, i) => !checks[i]);
+   const rejected = checks.filter(Boolean).length;
+ 
+   const downloadRejected = () => {
+     const cols = previewColumns || [];
+     const lines = [["Row", ...cols.map(c => c.label), "Reason"], ...parsedData.map((r, i) => [r, i] as const).filter(([, i]) => checks[i]).map(([r, i]) => [String(i + 2), ...cols.map(c => String((r as any)[c.key] ?? "")), checks[i] as string])];
+     const content = lines.map(l => l.map(c => /[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c).join(",")).join("\n");
+     const link = document.createElement("a");
+     link.href = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
+     link.download = "rejected_rows.csv";
+     link.click();
+   };
+ 
    const handleImport = async () => {
-     if (parsedData.length === 0) return;
+     if (validRows.length === 0) return;
  
      setImporting(true);
      try {
-       const result = await onImport(parsedData);
+       const result = await onImport(validRows);
        setResult(result);
        if (result.success > 0) {
          onComplete();
@@ -91,7 +110,7 @@
  
    return (
      <Dialog open={open} onOpenChange={handleClose}>
-       <DialogContent className="max-w-lg">
+       <DialogContent className={previewColumns ? "max-w-3xl" : "max-w-lg"}>
          <DialogHeader>
            <DialogTitle>{title}</DialogTitle>
            <DialogDescription>{description}</DialogDescription>
@@ -136,12 +155,33 @@
              <div className="space-y-2">
                <div className="flex items-center gap-2">
                  <Badge variant={parsedData.length > 0 ? "default" : "secondary"}>
-                   {parsedData.length} rows ready
+                   {validRows.length} rows ready
                  </Badge>
+                 {rejected > 0 && <Badge variant="destructive">{rejected} will be skipped</Badge>}
+                 {rejected > 0 && <Button variant="link" size="sm" className="h-auto p-0" onClick={downloadRejected}>Download skipped rows</Button>}
                  {parseErrors.length > 0 && (
                    <Badge variant="destructive">{parseErrors.length} errors</Badge>
                  )}
                </div>
+ 
+               {previewColumns && parsedData.length > 0 && !result && (
+                 <ScrollArea className="h-56 border rounded-md">
+                   <table className="w-full text-xs">
+                     <thead className="bg-muted sticky top-0">
+                       <tr><th className="p-1.5 text-left">#</th>{previewColumns.map(c => <th key={String(c.key)} className="p-1.5 text-left">{c.label}</th>)}<th className="p-1.5 text-left">Check</th></tr>
+                     </thead>
+                     <tbody>
+                       {parsedData.map((r, i) => (
+                         <tr key={i} className={checks[i] ? "bg-destructive/10" : ""}>
+                           <td className="p-1.5 text-muted-foreground">{i + 2}</td>
+                           {previewColumns.map(c => <td key={String(c.key)} className="p-1.5 max-w-[140px] truncate">{String((r as any)[c.key] ?? "")}</td>)}
+                           <td className={`p-1.5 ${checks[i] ? "text-destructive" : "text-primary"}`}>{checks[i] || "OK"}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </ScrollArea>
+               )}
  
                {parseErrors.length > 0 && (
                  <ScrollArea className="h-24 border rounded-md p-2">
@@ -178,10 +218,10 @@
              {!result && (
                <Button
                  onClick={handleImport}
-                 disabled={parsedData.length === 0 || importing}
+                 disabled={validRows.length === 0 || importing}
                >
                  {importing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                 Import {parsedData.length} Rows
+                 Import {validRows.length} Rows
                </Button>
              )}
            </div>

@@ -1,0 +1,2 @@
+UPDATE public.user_roles r SET tenant_id = tu.tenant_id FROM public.tenant_users tu WHERE r.tenant_id IS NULL AND tu.user_id = r.user_id;
+CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING (user_id = auth.uid());
