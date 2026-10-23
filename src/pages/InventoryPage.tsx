@@ -60,7 +60,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-type StockFilter = "all" | "low" | "out";
+type StockFilter = "all" | "instock" | "low" | "out";
 
 interface StockMovement {
   id: string;
@@ -87,7 +87,7 @@ export default function InventoryPage() {
   const [products, setProducts] = useState<BranchProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<StockFilter>("all");
+  const [filter, setFilter] = useState<StockFilter>("instock");
   
   // Stock adjustment dialog
   const [adjustmentDialog, setAdjustmentDialog] = useState(false);
@@ -204,6 +204,9 @@ export default function InventoryPage() {
     }
     if (filter === "out") {
       return matchesSearch && product.stock_quantity === 0;
+    }
+    if (filter === "instock") {
+      return matchesSearch && product.stock_quantity > 0;
     }
     return matchesSearch;
   });
@@ -646,7 +649,8 @@ export default function InventoryPage() {
                   <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="all">All Products</SelectItem>
+                  <SelectItem value="instock">In stock at this branch</SelectItem>
+                  <SelectItem value="all">All Products (full catalog)</SelectItem>
                   <SelectItem value="low">Low Stock</SelectItem>
                   <SelectItem value="out">Out of Stock</SelectItem>
                 </SelectContent>
