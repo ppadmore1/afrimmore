@@ -56,7 +56,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole, primaryRoleLabel } from "@/hooks/useUserRole";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -213,7 +213,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const userRole = useUserRole();
   const { lowStockCount, outOfStockCount, criticalProducts, hasAlerts } = useLowStockCheck();
 
-  const userRoleLabel = userRole.isAdmin ? 'Administrator' : userRole.isStaff ? 'Staff' : userRole.isCashier ? 'Cashier' : 'User';
+  const userRoleLabel = primaryRoleLabel(userRole.roles);
 
   useEffect(() => {
     if (!alertShown && hasAlerts && (lowStockCount > 0 || outOfStockCount > 0)) {

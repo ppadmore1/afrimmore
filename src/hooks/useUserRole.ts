@@ -2,7 +2,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'admin' | 'staff' | 'cashier';
+export type AppRole = 'admin' | 'staff' | 'cashier' | 'owner' | 'branch_manager' | 'inventory_officer' | 'accountant' | 'executive';
+
+export const ROLE_LABELS: Record<AppRole, string> = {
+  owner: 'Owner', admin: 'Administrator', executive: 'Executive', branch_manager: 'Branch Manager',
+  accountant: 'Accountant', inventory_officer: 'Inventory Officer', staff: 'Staff', cashier: 'Cashier',
+};
+const ORDER: AppRole[] = ['owner','admin','executive','branch_manager','accountant','inventory_officer','staff','cashier'];
+export const primaryRoleLabel = (roles: AppRole[]) => { const r = ORDER.find(o => roles.includes(o)); return r ? ROLE_LABELS[r] : 'User'; };
 
 interface UserRoleState {
   roles: AppRole[];
@@ -48,8 +55,8 @@ export function useUserRole(): UserRoleState {
   return {
     roles,
     loading,
-    isAdmin: roles.includes('admin'),
-    isStaff: roles.includes('staff') || roles.includes('admin'),
-    isCashier: roles.includes('cashier') || roles.includes('staff') || roles.includes('admin'),
+    isAdmin: roles.includes('admin') || roles.includes('owner'),
+    isStaff: ['staff','admin','owner','branch_manager','inventory_officer','accountant','executive'].some(r => roles.includes(r as AppRole)),
+    isCashier: roles.length > 0,
   };
 }
