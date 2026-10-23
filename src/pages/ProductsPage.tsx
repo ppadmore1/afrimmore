@@ -51,6 +51,8 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
    const [isImportOpen, setIsImportOpen] = useState(false);
+   const [branchList, setBranchList] = useState<{ id: string; name: string }[]>([]);
+   useEffect(() => { supabase.from("branches").select("id, name").then(({ data }) => setBranchList(data || [])); }, []);
 
   useEffect(() => {
     loadProducts();
@@ -121,7 +123,9 @@ export default function ProductsPage() {
        "low stock threshold": "low_stock_threshold",
        unit: "unit",
        "tax rate": "tax_rate",
-     });
+       category: "category",
+       branch: "branch",
+     } as any);
    };
  
    // Import products
@@ -135,8 +139,12 @@ export default function ProductsPage() {
          continue;
        }
  
+       const r = row as any;
+       const cat = r.category ? categories.find(c => c.name.trim().toLowerCase() === String(r.category).trim().toLowerCase()) : undefined;
+       const br = r.branch ? branchList.find(b => b.name.trim().toLowerCase() === String(r.branch).trim().toLowerCase()) : undefined;
        const productData = {
          name: row.name,
+         category_id: cat?.id || null,
          description: row.description || null,
          sku: row.sku || null,
          barcode: row.barcode || null,
@@ -149,6 +157,10 @@ export default function ProductsPage() {
        };
  
        const { data: created, error } = await supabase.from("products").insert(productData).select("id").single();
+       if (!error && created && br) {
+         // Opening stock goes to the chosen branch
+         await supabase.from("product_branches").insert({ product_id: created.id, branch_id: br.id, stock_quantity: productData.stock_quantity, low_stock_threshold: productData.low_stock_threshold });
+       }
        if (!error && created && !productData.barcode) {
          // Give every imported product a scannable barcode automatically
          await supabase.from("products").update({ barcode: generateBarcodeValue(created.id) }).eq("id", created.id);
@@ -493,15 +505,17 @@ export default function ProductsPage() {
          open={isImportOpen}
          onOpenChange={setIsImportOpen}
          title="Import Products"
-         description="Upload a CSV file to bulk import products. Required column: Name."
-         templateColumns={["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate"]}
+         description="Upload a CSV file to bulk import products. Required column: Name. Category and Branch must match names already in the app; opening stock goes to that branch. Check the preview — red rows are skipped."
+         templateColumns={["Name", "Description", "SKU", "Barcode", "Unit Price", "Cost Price", "Stock Quantity", "Low Stock Threshold", "Unit", "Tax Rate", "Category", "Branch"]}
           templateExamples={[
-            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0"],
-            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0"],
-            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0"],
+            ["HP EliteBook 840 G8 - i5 8GB 256GB", "Laptop, 14 inch", "LAP-HP840-I5-8-256", "", "650", "480", "120", "10", "pcs", "0", "", ""],
+            ["HP EliteBook 840 G8 - i7 16GB 512GB", "Laptop, 14 inch", "LAP-HP840-I7-16-512", "", "890", "650", "80", "5", "pcs", "0", "", ""],
+            ["Aquafina Water 500ml", "Bottle", "WAT-AQF-500", "", "0.50", "0.30", "600", "100", "bottle", "0", "", ""],
           ]}
          parseData={parseProductsCSV}
          onImport={handleImport}
+         validateRow={validateImportRow}
+         previewColumns={[{ key: "name", label: "Name" }, { key: "sku", label: "SKU" }, { key: "barcode", label: "Barcode" }, { key: "unit_price", label: "Price" }, { key: "stock_quantity", label: "Stock" }, { key: "category", label: "Category" }, { key: "branch", label: "Branch" }]}
          onComplete={loadProducts}
        />
     </AppLayout>
