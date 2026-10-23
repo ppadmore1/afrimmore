@@ -290,16 +290,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const isGroupActive = (group: NavGroup) =>
     group.items.some((item) => isItemActive(item.path));
 
-  const filterItems = (items: NavItem[]) =>
-    items.filter((item) => {
-      if (!hasMinRole(userRole, item.minRole || 'staff')) {
-        // Specialist roles may also see admin-level pages that belong to their job
-        const extra = specialistPaths(userRole.roles);
-        return !!extra && extra.has(item.path) && (item.minRole === 'admin');
-      }
-      const allowed = specialistPaths(userRole.roles);
-      return !allowed || allowed.has(item.path);
-    });
+  const filterItems = (items: NavItem[]) => items.filter((item) => itemVisible(item, userRole));
 
   return (
     <div className="flex min-h-screen w-full bg-background">
