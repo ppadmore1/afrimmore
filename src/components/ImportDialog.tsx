@@ -18,6 +18,7 @@
    title: string;
    description: string;
    templateColumns: string[];
+   templateExamples?: string[][];
    parseData: (csvText: string) => { data: Partial<T>[]; errors: string[] };
    onImport: (data: Partial<T>[]) => Promise<{ success: number; failed: number }>;
    onComplete: () => void;
@@ -29,6 +30,7 @@
    title,
    description,
    templateColumns,
+   templateExamples = [],
    parseData,
    onImport,
    onComplete,
@@ -77,7 +79,7 @@
    };
  
    const downloadTemplate = () => {
-     const content = templateColumns.join(",") + "\n";
+     const content = [templateColumns, ...templateExamples].map(r => r.map(c => /[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c).join(",")).join("\n") + "\n";
      const blob = new Blob([content], { type: "text/csv" });
      const link = document.createElement("a");
      link.href = URL.createObjectURL(blob);
