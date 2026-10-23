@@ -103,6 +103,7 @@ const navGroups: NavGroup[] = [
       { icon: LayoutDashboard, label: "Dashboard", path: "/", minRole: "cashier" },
       { icon: ShoppingCart, label: "POS", path: "/pos", minRole: "cashier" },
       { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up", minRole: "cashier" },
+      { icon: Receipt, label: "My Branch", path: "/my-branch", minRole: "staff" },
       { icon: Receipt, label: "Branch Cash-Up Dashboard", path: "/cash-up-dashboard", minRole: "staff" },
       { icon: ShoppingCart, label: "Online Orders", path: "/online-orders", minRole: "staff" },
       { icon: Lightbulb, label: "Ask AI (Branch Insights)", path: "/branch-insights", minRole: "staff" },
