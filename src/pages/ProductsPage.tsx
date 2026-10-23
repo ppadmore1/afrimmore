@@ -202,10 +202,18 @@ export default function ProductsPage() {
     }
   }
 
-  async function downloadBulkBarcodes() {
-    const productsWithBarcode = filteredProducts.filter(p => p.barcode);
-    if (productsWithBarcode.length === 0) {
+  async function downloadBulkBarcodes(perUnit = false) {
+    const withBarcode = filteredProducts.filter(p => p.barcode);
+    if (withBarcode.length === 0) {
       toast({ title: "No products with barcodes to download", variant: "destructive" });
+      return;
+    }
+    // One label per product, or one label per unit in stock (e.g. 200 laptops = 200 stickers)
+    const productsWithBarcode = perUnit
+      ? withBarcode.flatMap(p => Array.from({ length: Math.min(Math.max(p.stock_quantity || 0, 0), 5000) }, () => p))
+      : withBarcode;
+    if (productsWithBarcode.length === 0) {
+      toast({ title: "No stock to label", description: "These products have 0 in stock.", variant: "destructive" });
       return;
     }
 
@@ -219,6 +227,7 @@ export default function ProductsPage() {
       const cellW = pageW / cols;
       const cellH = pageH / rows;
       const margin = 4;
+      const imgCache = new Map<string, string>();
 
       for (let i = 0; i < productsWithBarcode.length; i++) {
         const product = productsWithBarcode[i];
