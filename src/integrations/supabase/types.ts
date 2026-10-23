@@ -1861,6 +1861,36 @@ export type Database = {
           },
         ]
       }
+      insight_forecast_snapshots: {
+        Row: {
+          branch_scope: string
+          created_at: string
+          history_days: number
+          id: string
+          predicted_daily: number
+          product_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          branch_scope?: string
+          created_at?: string
+          history_days: number
+          id?: string
+          predicted_daily: number
+          product_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          branch_scope?: string
+          created_at?: string
+          history_days?: number
+          id?: string
+          predicted_daily?: number
+          product_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       inventory_adjustment_items: {
         Row: {
           adjustment_id: string
@@ -3168,33 +3198,39 @@ export type Database = {
       }
       product_suppliers: {
         Row: {
+          carton_qty: number | null
           cost_price: number | null
           created_at: string
           id: string
           is_preferred: boolean | null
           lead_time_days: number | null
+          min_order_qty: number | null
           product_id: string
           supplier_id: string
           supplier_sku: string | null
           tenant_id: string | null
         }
         Insert: {
+          carton_qty?: number | null
           cost_price?: number | null
           created_at?: string
           id?: string
           is_preferred?: boolean | null
           lead_time_days?: number | null
+          min_order_qty?: number | null
           product_id: string
           supplier_id: string
           supplier_sku?: string | null
           tenant_id?: string | null
         }
         Update: {
+          carton_qty?: number | null
           cost_price?: number | null
           created_at?: string
           id?: string
           is_preferred?: boolean | null
           lead_time_days?: number | null
+          min_order_qty?: number | null
           product_id?: string
           supplier_id?: string
           supplier_sku?: string | null
@@ -3230,14 +3266,22 @@ export type Database = {
           category_id: string | null
           cost_price: number | null
           created_at: string
+          customs_cost: number
           description: string | null
+          freight_cost: number
           id: string
           image_url: string | null
           is_active: boolean | null
           is_bundle: boolean | null
+          is_service: boolean
+          lead_time_days: number | null
+          local_transport_cost: number
           low_stock_threshold: number | null
           min_discount_percent: number | null
+          min_selling_price: number | null
           name: string
+          purchase_cost: number | null
+          safety_stock_days: number | null
           sku: string | null
           stock_quantity: number
           tax_rate: number | null
@@ -3251,14 +3295,22 @@ export type Database = {
           category_id?: string | null
           cost_price?: number | null
           created_at?: string
+          customs_cost?: number
           description?: string | null
+          freight_cost?: number
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_bundle?: boolean | null
+          is_service?: boolean
+          lead_time_days?: number | null
+          local_transport_cost?: number
           low_stock_threshold?: number | null
           min_discount_percent?: number | null
+          min_selling_price?: number | null
           name: string
+          purchase_cost?: number | null
+          safety_stock_days?: number | null
           sku?: string | null
           stock_quantity?: number
           tax_rate?: number | null
@@ -3272,14 +3324,22 @@ export type Database = {
           category_id?: string | null
           cost_price?: number | null
           created_at?: string
+          customs_cost?: number
           description?: string | null
+          freight_cost?: number
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_bundle?: boolean | null
+          is_service?: boolean
+          lead_time_days?: number | null
+          local_transport_cost?: number
           low_stock_threshold?: number | null
           min_discount_percent?: number | null
+          min_selling_price?: number | null
           name?: string
+          purchase_cost?: number | null
+          safety_stock_days?: number | null
           sku?: string | null
           stock_quantity?: number
           tax_rate?: number | null
@@ -4178,6 +4238,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          lead_time_days: number | null
           name: string
           notes: string | null
           phone: string | null
@@ -4194,6 +4255,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          lead_time_days?: number | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -4210,6 +4272,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          lead_time_days?: number | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -4799,6 +4862,10 @@ export type Database = {
           p_tenant: string
         }
         Returns: undefined
+      }
+      authorize_price_override: {
+        Args: { p_pin: string; p_price: number; p_product_id: string }
+        Returns: string
       }
       can_access_branch: {
         Args: { p_branch_id: string; p_user_id: string }
