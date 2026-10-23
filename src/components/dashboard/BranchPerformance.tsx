@@ -25,7 +25,7 @@ export function BranchPerformance() {
     const since = subDays(new Date(), Number(days)).toISOString();
     (async () => {
       const { data: s } = await supabase.from("pos_sales").select("id,total,branch_id,created_at,payment_method")
-        .gte("created_at", since).neq("status", "voided").limit(5000);
+        .gte("created_at", since).neq("status", "cancelled").limit(5000);
       setSales((s as Sale[]) || []);
       const { data: i } = await supabase.from("pos_sale_items").select("product_name,quantity,total,sale_id")
         .gte("created_at", since).limit(10000);
