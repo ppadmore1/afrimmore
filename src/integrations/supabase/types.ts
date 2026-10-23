@@ -1861,6 +1861,36 @@ export type Database = {
           },
         ]
       }
+      insight_forecast_snapshots: {
+        Row: {
+          branch_scope: string
+          created_at: string
+          history_days: number
+          id: string
+          predicted_daily: number
+          product_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          branch_scope?: string
+          created_at?: string
+          history_days: number
+          id?: string
+          predicted_daily: number
+          product_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          branch_scope?: string
+          created_at?: string
+          history_days?: number
+          id?: string
+          predicted_daily?: number
+          product_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       inventory_adjustment_items: {
         Row: {
           adjustment_id: string

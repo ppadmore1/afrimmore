@@ -113,6 +113,13 @@
       "when": 1792796482150,
       "tag": "0015_landed_cost_price_floor_forecast",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792796609134,
+      "tag": "0016_insight_forecast_snapshots",
+      "breakpoints": true
     }
   ]
 }
