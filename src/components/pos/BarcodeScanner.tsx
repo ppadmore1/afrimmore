@@ -1,325 +1,126 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-// @ts-ignore - quagga2 type definitions have TS1540 error
-import Quagga from "@ericblade/quagga2";
+import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { Camera, SwitchCamera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
   onClose: () => void;
   isOpen: boolean;
-  /** Only accept codes this returns true for; misreads are ignored and scanning continues */
+  /** Only accept codes this returns true for; misreads keep scanning */
   acceptCode?: (code: string) => boolean;
 }
 
-const getCameraErrorMessage = (err: any) => {
-  const errorName = err?.name || err?.type || "";
-
-  if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
-    return "Camera permission is blocked. Please allow camera access and try again.";
-  }
-
-  if (errorName === "NotReadableError" || errorName === "TrackStartError") {
-    return "Camera is busy or locked by another session. Tap Try Again to reset it.";
-  }
-
-  if (errorName === "OverconstrainedError") {
-    return "This camera does not support the selected mode. Try switching camera.";
-  }
-
+const cameraError = (err: any) => {
+  const n = err?.name || "";
+  if (n === "NotAllowedError" || n === "PermissionDeniedError") return "Camera permission is blocked. Please allow camera access and try again.";
+  if (n === "NotReadableError" || n === "TrackStartError") return "Camera is busy in another app or tab. Close it and tap Try Again.";
+  if (n === "OverconstrainedError") return "This camera mode isn't supported. Try switching camera.";
   return "Could not access camera. Please allow camera permissions and try again.";
 };
 
+const beep = () => {
+  try {
+    const a = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const o = a.createOscillator(); const g = a.createGain();
+    o.connect(g); g.connect(a.destination); o.frequency.value = 1000; g.gain.value = 0.3;
+    o.start(); o.stop(a.currentTime + 0.1);
+  } catch { /* optional */ }
+};
+
 export function BarcodeScanner({ onScan, onClose, isOpen, acceptCode }: BarcodeScannerProps) {
-  const scannerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
+  const doneRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRead, setLastRead] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const isInitializedRef = useRef(false);
-  const isStartingRef = useRef(false);
-  const hasDetectedRef = useRef(false);
-  const lastCodeRef = useRef<string | null>(null);
-  const countRef = useRef(0);
-  const detectedHandlerRef = useRef<((result: any) => void) | null>(null);
-  const initTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
-  const releaseAllStreams = useCallback(() => {
-    if (scannerRef.current) {
-      const videos = scannerRef.current.querySelectorAll("video");
-      videos.forEach((video) => {
-        const stream = video.srcObject as MediaStream | null;
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-          video.srcObject = null;
-        }
-        video.remove();
-      });
+  const stop = () => {
+    try { controlsRef.current?.stop(); } catch { /* ignore */ }
+    controlsRef.current = null;
+    const s = videoRef.current?.srcObject as MediaStream | null;
+    s?.getTracks().forEach((t) => t.stop());
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
 
-      scannerRef.current.querySelectorAll("canvas").forEach((canvas) => canvas.remove());
-    }
-
-    try {
-      Quagga.CameraAccess?.release?.();
-    } catch (e) {
-      // ignore
-    }
-  }, []);
-
-  const stopScanner = useCallback(async () => {
-    if (initTimerRef.current) {
-      clearTimeout(initTimerRef.current);
-      initTimerRef.current = null;
-    }
-
-    if (detectedHandlerRef.current) {
-      try {
-        Quagga.offDetected(detectedHandlerRef.current);
-      } catch (e) {
-        // ignore
-      }
-      detectedHandlerRef.current = null;
-    }
-
-    if (isInitializedRef.current || isStartingRef.current) {
-      try {
-        await Promise.resolve((Quagga.stop as any)?.());
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    isInitializedRef.current = false;
-    isStartingRef.current = false;
-    releaseAllStreams();
-  }, [releaseAllStreams]);
-
-  const initScanner = useCallback(async () => {
-    if (!scannerRef.current || !isOpen || isStartingRef.current) return;
-
-    isStartingRef.current = true;
-    hasDetectedRef.current = false;
-    lastCodeRef.current = null;
-    countRef.current = 0;
+  useEffect(() => {
+    if (!isOpen) return;
+    doneRef.current = false;
     setError(null);
+    setLastRead(null);
+    let cancelled = false;
 
-    await stopScanner();
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.CODE_128, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_39, BarcodeFormat.QR_CODE,
+    ]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 100 });
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
-
-    if (!scannerRef.current || !isOpen) {
-      isStartingRef.current = false;
-      return;
-    }
-
-    const handleDetected = (result: any) => {
-      const code = result?.codeResult?.code;
-      if (!code || hasDetectedRef.current) return;
-      // Reject unreliable reads: require the same code 3 times in a row
-      const errs = (result?.codeResult?.decodedCodes || []).filter((d: any) => d.error !== undefined).map((d: any) => d.error);
-      const avgErr = errs.length ? errs.reduce((a: number, b: number) => a + b, 0) / errs.length : 0;
-      if (avgErr > 0.2) return;
-      if (acceptCode && !acceptCode(code)) return; // misread (e.g. "suk") — keep scanning
-      if (lastCodeRef.current === code) countRef.current += 1;
-      else { lastCodeRef.current = code; countRef.current = 1; }
-      if (countRef.current < 3) return;
-
-      hasDetectedRef.current = true;
-
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 1000;
-        oscillator.type = "sine";
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
-      } catch (e) {
-        // audio is optional
-      }
-
-      void stopScanner();
+    const accept = (code: string) => {
+      if (doneRef.current) return;
+      if (acceptCode && !acceptCode(code)) { setLastRead(code); return; }
+      doneRef.current = true;
+      beep();
+      stop();
       onScan(code);
       onClose();
     };
 
-    detectedHandlerRef.current = handleDetected;
-
-    try {
-      await new Promise<void>((resolve, reject) => {
-        Quagga.init(
-          {
-            inputStream: {
-              type: "LiveStream",
-              target: scannerRef.current,
-              constraints: {
-                facingMode,
-                width: { min: 640 },
-                height: { min: 480 },
-              },
-            },
-            locator: {
-              patchSize: "medium",
-              halfSample: true,
-            },
-            numOfWorkers: navigator.hardwareConcurrency || 4,
-            decoder: {
-              readers: [
-                "ean_reader",
-                "ean_8_reader",
-                "code_128_reader",
-                "upc_reader",
-                "upc_e_reader",
-              ],
-            },
-            locate: true,
-          },
-          (err: any) => {
-            if (err) reject(err);
-            else resolve();
-          }
+    (async () => {
+      await new Promise((r) => setTimeout(r, 150));
+      if (cancelled || !videoRef.current) return;
+      try {
+        controlsRef.current = await reader.decodeFromConstraints(
+          { video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } },
+          videoRef.current,
+          (result) => { if (result) accept(result.getText().trim()); },
         );
-      });
-
-      Quagga.onDetected(handleDetected);
-      Quagga.start();
-      isInitializedRef.current = true;
-    } catch (err: any) {
-      console.error("Quagga init/start error:", err);
-      await stopScanner();
-      setError(getCameraErrorMessage(err));
-    } finally {
-      isStartingRef.current = false;
-    }
-  }, [facingMode, isOpen, onScan, onClose, stopScanner]);
-
-  useEffect(() => {
-    if (isOpen) {
-      initTimerRef.current = setTimeout(() => {
-        void initScanner();
-      }, 500);
-    } else {
-      void stopScanner();
-    }
-
-    return () => {
-      void stopScanner();
-    };
-  }, [isOpen, initScanner, stopScanner]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (initTimerRef.current) {
-      clearTimeout(initTimerRef.current);
-    }
-
-    initTimerRef.current = setTimeout(() => {
-      void initScanner();
-    }, 500);
-
-    return () => {
-      if (initTimerRef.current) {
-        clearTimeout(initTimerRef.current);
-        initTimerRef.current = null;
+        if (cancelled) stop();
+      } catch (e) {
+        console.error("Scanner start error:", e);
+        if (!cancelled) setError(cameraError(e));
       }
-    };
-  }, [facingMode, isOpen, initScanner]);
+    })();
 
-  const toggleCamera = () => {
-    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
-  };
-
-  const handleTryAgain = async () => {
-    setError(null);
-    await stopScanner();
-
-    initTimerRef.current = setTimeout(() => {
-      void initScanner();
-    }, 650);
-  };
-
-  const handleClose = async () => {
-    await stopScanner();
-    hasDetectedRef.current = false;
-    setError(null);
-    onClose();
-  };
+    return () => { cancelled = true; stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, facingMode, attempt]);
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) void handleClose();
-      }}
-    >
+    <Dialog open={isOpen} onOpenChange={(o) => { if (!o) { stop(); onClose(); } }}>
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5" />
-            Scan Barcode
-          </DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Camera className="w-5 h-5" />Scan Barcode</DialogTitle>
         </DialogHeader>
-
         <div className="relative">
           {error ? (
             <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
               <Camera className="w-12 h-12 text-muted-foreground mb-4" />
               <p className="text-destructive">{error}</p>
-              <Button onClick={handleTryAgain} className="mt-4">
-                Try Again
-              </Button>
+              <Button onClick={() => { stop(); setAttempt((a) => a + 1); }} className="mt-4">Try Again</Button>
             </div>
           ) : (
-            <>
-              <div
-                ref={scannerRef}
-                className="relative w-full aspect-[4/3] bg-black overflow-hidden"
-              >
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div className="w-64 h-32 border-2 border-primary rounded-lg">
-                    <div className="absolute inset-0 border-2 border-transparent animate-pulse">
-                      <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
-                      <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
-                      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
-                      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div className="w-64 h-32 overflow-hidden">
-                    <div className="w-full h-0.5 bg-primary/70 animate-[scan_2s_ease-in-out_infinite]" />
-                  </div>
-                </div>
+            <div className="relative w-full aspect-[4/3] bg-foreground overflow-hidden">
+              <video ref={videoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-72 h-32 border-2 border-primary rounded-lg" />
               </div>
-
-              <div className="absolute bottom-4 right-4 z-20">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={toggleCamera}
-                  className="rounded-full"
-                >
-                  <SwitchCamera className="w-4 h-4" />
-                </Button>
-              </div>
-            </>
+              <Button size="icon" variant="secondary" className="absolute bottom-4 right-4 rounded-full"
+                onClick={() => { stop(); setFacingMode((f) => (f === "environment" ? "user" : "environment")); }}>
+                <SwitchCamera className="w-4 h-4" />
+              </Button>
+            </div>
           )}
         </div>
-
-        <div className="p-4 pt-2">
-          <p className="text-sm text-muted-foreground text-center">
-            Position the barcode within the frame to scan
-          </p>
+        <div className="p-4 pt-2 text-center text-sm text-muted-foreground space-y-1">
+          <p>Hold the barcode flat inside the frame, about 15–20 cm away.</p>
+          {lastRead && <p>Read "<span className="font-mono">{lastRead}</span>" — no product has this code. Check the product's barcode field.</p>}
         </div>
       </DialogContent>
     </Dialog>
