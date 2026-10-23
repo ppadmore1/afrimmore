@@ -12,9 +12,11 @@ interface ManagerPinDialogProps {
   onClose: () => void;
   onVerified: (managerId: string, managerName: string) => void;
   actionDescription: string;
+  /** Optional custom check; returns the approving manager's name or throws. */
+  verify?: (pin: string) => Promise<string>;
 }
 
-export function ManagerPinDialog({ isOpen, onClose, onVerified, actionDescription }: ManagerPinDialogProps) {
+export function ManagerPinDialog({ isOpen, onClose, onVerified, actionDescription, verify }: ManagerPinDialogProps) {
   const { toast } = useToast();
   const [pin, setPin] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -35,6 +37,13 @@ export function ManagerPinDialog({ isOpen, onClose, onVerified, actionDescriptio
     setVerifying(true);
     setError("");
     try {
+      if (verify) {
+        const name = await verify(pin);
+        onVerified("", name);
+        setPin("");
+        toast({ title: "Authorized", description: `Approved by ${name}` });
+        return;
+      }
       const { data, error: rpcError } = await supabase.rpc("verify_manager_pin", { p_pin: pin });
       if (rpcError) throw rpcError;
       if (!data || data.length === 0) {
