@@ -113,6 +113,7 @@ const navGroups: NavGroup[] = [
     label: "Products & Inventory",
     items: [
       { icon: Tag, label: "Products", path: "/products", minRole: "cashier" },
+      { icon: Tag, label: "Barcode Labels", path: "/barcode-labels", minRole: "staff" },
       { icon: Boxes, label: "Inventory", path: "/inventory", minRole: "staff" },
       { icon: ArrowLeftRight, label: "Stock Transfers", path: "/stock-transfers", minRole: "staff" },
       { icon: ClipboardCheck, label: "Adjustments", path: "/inventory-adjustments", minRole: "staff" },
