@@ -253,17 +253,13 @@ export default function ProductsPage() {
         const nameLines = doc.splitTextToSize(product.name, w);
         doc.text(nameLines[0], x + w / 2, y + 5, { align: "center" });
 
-        // Generate barcode as SVG then convert
-        const canvas = document.createElement("canvas");
-        JsBarcode(canvas, product.barcode!, {
-          format: "CODE128",
-          width: 2,
-          height: 40,
-          displayValue: true,
-          fontSize: 10,
-          margin: 2,
-        });
-        const imgData = canvas.toDataURL("image/png");
+        let imgData = imgCache.get(product.barcode!);
+        if (!imgData) {
+          const canvas = document.createElement("canvas");
+          JsBarcode(canvas, product.barcode!, { format: "CODE128", width: 2, height: 40, displayValue: true, fontSize: 10, margin: 2 });
+          imgData = canvas.toDataURL("image/png");
+          imgCache.set(product.barcode!, imgData);
+        }
         doc.addImage(imgData, "PNG", x, y + 7, w, h - 12);
 
         // Price
@@ -307,7 +303,7 @@ export default function ProductsPage() {
              </Button>
             <Button
               variant="outline"
-              onClick={downloadBulkBarcodes}
+              onClick={() => downloadBulkBarcodes(false)}
               disabled={downloadingBarcodes || filteredProducts.filter(p => p.barcode).length === 0}
             >
               {downloadingBarcodes ? (
@@ -316,6 +312,15 @@ export default function ProductsPage() {
                 <Barcode className="w-4 h-4 mr-2" />
               )}
               Download Barcodes ({filteredProducts.filter(p => p.barcode).length})
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => downloadBulkBarcodes(true)}
+              disabled={downloadingBarcodes || filteredProducts.filter(p => p.barcode).length === 0}
+              title="Print one sticker for every unit in stock"
+            >
+              <Barcode className="w-4 h-4 mr-2" />
+              Stickers for All Stock
             </Button>
             {productsWithoutBarcode.length > 0 && (
               <Button 
