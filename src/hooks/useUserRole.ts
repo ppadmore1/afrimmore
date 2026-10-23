@@ -23,12 +23,14 @@ export function useUserRole(): UserRoleState {
   const { user } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedFor, setLoadedFor] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     async function fetchRoles() {
       if (!user) {
         setRoles([]);
         setLoading(false);
+        setLoadedFor(null);
         return;
       }
 
@@ -46,6 +48,7 @@ export function useUserRole(): UserRoleState {
         setRoles([]);
       } finally {
         setLoading(false);
+        setLoadedFor(user.id);
       }
     }
 
@@ -54,7 +57,7 @@ export function useUserRole(): UserRoleState {
 
   return {
     roles,
-    loading,
+    loading: loading || loadedFor !== (user?.id ?? null),
     isAdmin: roles.includes('admin') || roles.includes('owner'),
     isStaff: ['staff','admin','owner','branch_manager','inventory_officer','accountant','executive'].some(r => roles.includes(r as AppRole)),
     isCashier: roles.length > 0,
