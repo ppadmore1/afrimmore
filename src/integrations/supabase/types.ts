@@ -4791,11 +4791,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _adjust_branch_stock: {
+        Args: {
+          p_branch: string
+          p_delta: number
+          p_product: string
+          p_tenant: string
+        }
+        Returns: undefined
+      }
       can_access_branch: {
         Args: { p_branch_id: string; p_user_id: string }
         Returns: boolean
       }
       delete_invitations: { Args: { p_ids: string[] }; Returns: number }
+      dispatch_stock_transfer: {
+        Args: { p_transfer_id: string }
+        Returns: undefined
+      }
       get_branch_portal: {
         Args: { p_branch_id: string; p_date: string }
         Returns: Json
@@ -4907,6 +4920,19 @@ export type Database = {
               sale_number: string
             }[]
           }
+      receive_purchase_order: {
+        Args: {
+          p_branch_id: string
+          p_items: Json
+          p_notes?: string
+          p_po_id: string
+        }
+        Returns: string
+      }
+      receive_stock_transfer: {
+        Args: { p_transfer_id: string }
+        Returns: undefined
+      }
       remove_tenant_user: { Args: { p_user_id: string }; Returns: undefined }
       safe_delete_branch: { Args: { p_branch_id: string }; Returns: undefined }
       safe_delete_invoice: {
