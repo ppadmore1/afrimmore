@@ -61,14 +61,9 @@ export default function BranchReportsPage() {
     notes: "",
   });
 
-  const { data: branches = [] } = useQuery({
-    queryKey: ["branches-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("branches").select("id, name").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data as Branch[];
-    },
-  });
+  // Only branches this user is assigned to (head office gets all)
+  const { userBranches } = useBranch();
+  const branches: Branch[] = userBranches.map((b) => ({ id: b.id, name: b.name }));
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ["branch-reports", tab],
