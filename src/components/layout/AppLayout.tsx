@@ -101,6 +101,7 @@ const navGroups: NavGroup[] = [
       { icon: LayoutDashboard, label: "Dashboard", path: "/", minRole: "cashier" },
       { icon: ShoppingCart, label: "POS", path: "/pos", minRole: "cashier" },
       { icon: Receipt, label: "Daily Cash-Up", path: "/daily-cash-up", minRole: "cashier" },
+      { icon: ShoppingCart, label: "Online Orders", path: "/online-orders", minRole: "staff" },
     ],
   },
   {
