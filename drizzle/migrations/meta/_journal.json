@@ -29,6 +29,13 @@
       "when": 1792767558870,
       "tag": "0003_extra_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792768041556,
+      "tag": "0004_shift_currency_and_report_settings",
+      "breakpoints": true
     }
   ]
 }

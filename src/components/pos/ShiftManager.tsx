@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
+import { getLrdRate } from "@/lib/currency";
 
 interface ActiveShift {
   id: string;
@@ -37,6 +38,9 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [openingFloat, setOpeningFloat] = useState("0");
   const [actualCash, setActualCash] = useState("");
+  const [countedLrd, setCountedLrd] = useState("");
+  const [countedMobile, setCountedMobile] = useState("");
+  const [rate, setRate] = useState(String(getLrdRate()));
   const [closeNotes, setCloseNotes] = useState("");
 
   useEffect(() => {
@@ -116,8 +120,13 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
       }, { total: 0, count: 0, cash: 0, card: 0, mobile: 0, bank: 0 });
 
       const expectedCash = (parseFloat(String(activeShift.opening_float)) || 0) + totals.cash;
-      const actualCashNum = parseFloat(actualCash) || 0;
-      const difference = actualCashNum - expectedCash;
+      const usd = parseFloat(actualCash) || 0;
+      const lrd = parseFloat(countedLrd) || 0;
+      const r = parseFloat(rate) || 195;
+      const actualCashNum = usd + lrd / r;
+      const difference = Math.round((actualCashNum - expectedCash) * 100) / 100;
+      const mobileCounted = parseFloat(countedMobile) || 0;
+      const mobileDiff = Math.round((mobileCounted - totals.mobile) * 100) / 100;
 
       const { error } = await supabase
         .from("pos_shifts")
@@ -134,6 +143,11 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
           expected_cash: expectedCash,
           actual_cash: actualCashNum,
           cash_difference: difference,
+          counted_usd: usd,
+          counted_lrd: lrd,
+          lrd_rate: r,
+          counted_mobile_money: mobileCounted,
+          mobile_money_difference: mobileDiff,
           notes: closeNotes || null,
         })
         .eq("id", activeShift.id);
@@ -144,13 +158,13 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
       onShiftChange(null);
       setShowCloseDialog(false);
       setActualCash("");
+      setCountedLrd("");
+      setCountedMobile("");
       setCloseNotes("");
 
       toast({
         title: "Shift Closed",
-        description: difference === 0
-          ? "Cash balanced perfectly! ✅"
-          : `Cash difference: $${difference.toFixed(2)}`,
+        description: `Cash ${difference === 0 ? "balanced" : `off by $${difference.toFixed(2)}`} · Mobile money ${mobileDiff === 0 ? "balanced" : `off by $${mobileDiff.toFixed(2)}`}`,
       });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -227,11 +241,11 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
               <Square className="w-5 h-5 text-destructive" />
               Close Shift
             </DialogTitle>
-            <DialogDescription>Count the cash in your drawer and enter the total.</DialogDescription>
+            <DialogDescription>Count each currency separately and check your mobile money total.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Actual Cash in Drawer ($)</label>
+              <label className="text-sm font-medium">USD cash counted ($)</label>
               <Input
                 type="number"
                 step="0.01"
@@ -240,6 +254,18 @@ export function ShiftManager({ onShiftChange }: ShiftManagerProps) {
                 className="mt-1 text-lg font-mono text-center h-12"
                 placeholder="0.00"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">LRD cash counted (L$)</label>
+              <Input type="number" step="1" value={countedLrd} onChange={(e) => setCountedLrd(e.target.value)} className="mt-1 text-lg font-mono text-center h-12" placeholder="0" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Rate (LRD per 1 USD)</label>
+              <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} className="mt-1 font-mono text-center" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Mobile money received ($)</label>
+              <Input type="number" step="0.01" value={countedMobile} onChange={(e) => setCountedMobile(e.target.value)} className="mt-1 text-lg font-mono text-center h-12" placeholder="0.00" />
             </div>
             <div>
               <label className="text-sm font-medium">Notes (optional)</label>

@@ -1461,6 +1461,47 @@ export type Database = {
           },
         ]
       }
+      email_report_settings: {
+        Row: {
+          branch_id: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          recipients: string[]
+          send_time: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          recipients?: string[]
+          send_time?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          recipients?: string[]
+          send_time?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_report_settings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_breaks: {
         Row: {
           break_end: string | null
@@ -2724,9 +2765,14 @@ export type Database = {
           cash_sales: number
           closed_at: string | null
           closed_by: string | null
+          counted_lrd: number | null
+          counted_mobile_money: number | null
+          counted_usd: number | null
           created_at: string
           expected_cash: number
           id: string
+          lrd_rate: number | null
+          mobile_money_difference: number | null
           mobile_money_sales: number
           notes: string | null
           opened_at: string
@@ -2747,9 +2793,14 @@ export type Database = {
           cash_sales?: number
           closed_at?: string | null
           closed_by?: string | null
+          counted_lrd?: number | null
+          counted_mobile_money?: number | null
+          counted_usd?: number | null
           created_at?: string
           expected_cash?: number
           id?: string
+          lrd_rate?: number | null
+          mobile_money_difference?: number | null
           mobile_money_sales?: number
           notes?: string | null
           opened_at?: string
@@ -2770,9 +2821,14 @@ export type Database = {
           cash_sales?: number
           closed_at?: string | null
           closed_by?: string | null
+          counted_lrd?: number | null
+          counted_mobile_money?: number | null
+          counted_usd?: number | null
           created_at?: string
           expected_cash?: number
           id?: string
+          lrd_rate?: number | null
+          mobile_money_difference?: number | null
           mobile_money_sales?: number
           notes?: string | null
           opened_at?: string

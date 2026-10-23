@@ -37,6 +37,7 @@ import PurchaseOrderForm from "./pages/PurchaseOrderForm";
 import ReceiptsPage from "./pages/ReceiptsPage";
 import ReceiptForm from "./pages/ReceiptForm";
 import CompanySettingsPage from "./pages/CompanySettingsPage";
+import EmailReportsPage from "./pages/EmailReportsPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import InstallPage from "./pages/InstallPage";
 import ActivityLogsPage from "./pages/ActivityLogsPage";
@@ -130,6 +131,7 @@ const App = () => (
                 <Route path="/purchase-orders/:id" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
+                <Route path="/email-reports" element={<ProtectedRoute><EmailReportsPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/install" element={<ProtectedRoute><InstallPage /></ProtectedRoute>} />
                <Route path="/time-tracking" element={<ProtectedRoute><TimeTrackingPage /></ProtectedRoute>} />
