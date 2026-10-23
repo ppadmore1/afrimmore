@@ -3,3 +3,5 @@
 - Page access is enforced in ProtectedRoute via canAccessPath (AppLayout nav rules, sub-pages inherit their parent menu item); why: menu hiding alone let users type restricted URLs.
 - Per-unit serial numbers live in product_serials; the POS matches scanned serials and marks them sold with the sale; why: track individual laptops/phones like Zoho without one product per unit.
 - Product CSV import validates every row in a preview (ImportDialog validateRow) and only saves OK rows; why: bad rows must be visible and downloadable before anything is written.
+- Head-office roles (owner, admin, executive, accountant; is_hq() in the database, isHeadOffice() in the app) see all branches; everyone else is limited to their user_branches by RLS on pos_sales, pos_shifts and branch_reports; why: branch staff must never see other branches' or company-wide figures.
+- The "/" dashboard is head-office only; cashiers are redirected to /pos and other branch roles to /my-branch; why: role-based landing like standard ERPs.
