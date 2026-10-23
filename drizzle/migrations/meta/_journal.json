@@ -22,6 +22,13 @@
       "when": 1792735206456,
       "tag": "0002_plan_limits_invites_locks_journals",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792767558870,
+      "tag": "0003_extra_roles",
+      "breakpoints": true
     }
   ]
 }
