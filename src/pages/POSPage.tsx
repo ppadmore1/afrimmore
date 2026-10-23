@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { DualCurrencyCash } from "@/components/pos/DualCurrencyCash";
+import { fmtLrd, usdToLrd } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
