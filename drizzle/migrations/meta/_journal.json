@@ -106,6 +106,13 @@
       "when": 1792795510207,
       "tag": "0014_erp_inventory_refinements",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792796482150,
+      "tag": "0015_landed_cost_price_floor_forecast",
+      "breakpoints": true
     }
   ]
 }
