@@ -204,6 +204,21 @@ function hasMinRole(userRoles: { isAdmin: boolean; isStaff: boolean; isCashier: 
   const userLevel = userRoles.isAdmin ? 3 : userRoles.isStaff ? 2 : userRoles.isCashier ? 1 : 0;
   return userLevel >= (ROLE_LEVEL[minRole] || 0);
 }
+// Pages each specialist role sees. Applies only when the user has no
+// admin/owner/staff/branch_manager role (those see everything their level allows).
+const COMMON = ["/", "/time-tracking", "/branch-insights"];
+const SPECIALIST_PATHS: Record<string, string[]> = {
+  inventory_officer: ["/products", "/barcode-labels", "/inventory", "/stock-transfers", "/inventory-adjustments", "/branch-stock", "/reorder", "/batch-tracking", "/bundle-items", "/warehouse-locations", "/suppliers", "/purchase-orders", "/my-branch"],
+  accountant: ["/invoices", "/quotations", "/receipts", "/credit-notes", "/recurring-invoices", "/customer-statements", "/customers", "/vendor-bills", "/chart-of-accounts", "/journal-entries", "/trial-balance", "/payments", "/expenses", "/financial-statements", "/aging-reports", "/bank-reconciliation", "/multi-currency", "/tax-management", "/inventory-valuation", "/reports", "/daily-cash-up", "/cash-up-dashboard", "/payroll-reports"],
+  executive: ["/cash-up-dashboard", "/daily-cash-up", "/reports", "/branch-reports", "/financial-statements", "/aging-reports", "/inventory-valuation", "/branch-stock", "/admin", "/branch-grades", "/audit-visits", "/payroll-reports"],
+};
+function specialistPaths(roles: string[]): Set<string> | null {
+  if (roles.some((r) => ["admin", "owner", "staff", "branch_manager"].includes(r))) return null;
+  const mine = roles.filter((r) => SPECIALIST_PATHS[r]);
+  if (mine.length === 0) return null;
+  return new Set([...COMMON, ...mine.flatMap((r) => SPECIALIST_PATHS[r])]);
+}
+
 interface AppLayoutProps {
   children: React.ReactNode;
 }
@@ -253,7 +268,15 @@ export function AppLayout({ children }: AppLayoutProps) {
     group.items.some((item) => isItemActive(item.path));
 
   const filterItems = (items: NavItem[]) =>
-    items.filter((item) => hasMinRole(userRole, item.minRole || 'staff'));
+    items.filter((item) => {
+      if (!hasMinRole(userRole, item.minRole || 'staff')) {
+        // Specialist roles may also see admin-level pages that belong to their job
+        const extra = specialistPaths(userRole.roles);
+        return !!extra && extra.has(item.path) && (item.minRole === 'admin');
+      }
+      const allowed = specialistPaths(userRole.roles);
+      return !allowed || allowed.has(item.path);
+    });
 
   return (
     <div className="flex min-h-screen w-full bg-background">
