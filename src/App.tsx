@@ -62,6 +62,7 @@ import InventoryValuationPage from "./pages/InventoryValuationPage";
 import TaxManagementPage from "./pages/TaxManagementPage";
 import BatchTrackingPage from "./pages/BatchTrackingPage";
 import DailyCashUpPage from "./pages/DailyCashUpPage";
+import CashUpDashboardPage from "./pages/CashUpDashboardPage";
 import CustomerStatementsPage from "./pages/CustomerStatementsPage";
 import VendorBillsPage from "./pages/VendorBillsPage";
 import StockTransfersPage from "./pages/StockTransfersPage";
@@ -156,6 +157,7 @@ const App = () => (
                <Route path="/tax-management" element={<ProtectedRoute><TaxManagementPage /></ProtectedRoute>} />
                <Route path="/batch-tracking" element={<ProtectedRoute><BatchTrackingPage /></ProtectedRoute>} />
                <Route path="/daily-cash-up" element={<ProtectedRoute><DailyCashUpPage /></ProtectedRoute>} />
+               <Route path="/cash-up-dashboard" element={<ProtectedRoute><CashUpDashboardPage /></ProtectedRoute>} />
                <Route path="/customer-statements" element={<ProtectedRoute><CustomerStatementsPage /></ProtectedRoute>} />
                <Route path="/vendor-bills" element={<ProtectedRoute><VendorBillsPage /></ProtectedRoute>} />
                <Route path="/stock-transfers" element={<ProtectedRoute><StockTransfersPage /></ProtectedRoute>} />

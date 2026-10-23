@@ -1119,6 +1119,7 @@ export default function POSPage() {
           isOpen={isScannerOpen}
           onClose={() => setIsScannerOpen(false)}
           onScan={handleBarcodeScan}
+          acceptCode={(c) => !!findByCode(c)}
         />
 
         {/* Receipt Dialog */}
