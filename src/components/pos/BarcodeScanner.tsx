@@ -41,6 +41,8 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
   const isInitializedRef = useRef(false);
   const isStartingRef = useRef(false);
   const hasDetectedRef = useRef(false);
+  const lastCodeRef = useRef<string | null>(null);
+  const countRef = useRef(0);
   const detectedHandlerRef = useRef<((result: any) => void) | null>(null);
   const initTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +101,8 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
 
     isStartingRef.current = true;
     hasDetectedRef.current = false;
+    lastCodeRef.current = null;
+    countRef.current = 0;
     setError(null);
 
     await stopScanner();
@@ -113,6 +117,13 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
     const handleDetected = (result: any) => {
       const code = result?.codeResult?.code;
       if (!code || hasDetectedRef.current) return;
+      // Reject unreliable reads: require the same code 3 times in a row
+      const errs = (result?.codeResult?.decodedCodes || []).filter((d: any) => d.error !== undefined).map((d: any) => d.error);
+      const avgErr = errs.length ? errs.reduce((a: number, b: number) => a + b, 0) / errs.length : 0;
+      if (avgErr > 0.25) return;
+      if (lastCodeRef.current === code) countRef.current += 1;
+      else { lastCodeRef.current = code; countRef.current = 1; }
+      if (countRef.current < 3) return;
 
       hasDetectedRef.current = true;
 
