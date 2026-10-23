@@ -4815,7 +4815,15 @@ export type Database = {
         | "operating_expense"
         | "other_expense"
       account_type: "asset" | "liability" | "equity" | "revenue" | "expense"
-      app_role: "admin" | "staff" | "cashier"
+      app_role:
+        | "admin"
+        | "staff"
+        | "cashier"
+        | "owner"
+        | "branch_manager"
+        | "inventory_officer"
+        | "accountant"
+        | "executive"
       clock_status: "clocked_in" | "clocked_out" | "on_break"
       discount_type: "percentage" | "fixed_amount"
       document_status:
@@ -4989,7 +4997,16 @@ export const Constants = {
         "other_expense",
       ],
       account_type: ["asset", "liability", "equity", "revenue", "expense"],
-      app_role: ["admin", "staff", "cashier"],
+      app_role: [
+        "admin",
+        "staff",
+        "cashier",
+        "owner",
+        "branch_manager",
+        "inventory_officer",
+        "accountant",
+        "executive",
+      ],
       clock_status: ["clocked_in", "clocked_out", "on_break"],
       discount_type: ["percentage", "fixed_amount"],
       document_status: [
