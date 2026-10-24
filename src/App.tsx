@@ -60,6 +60,7 @@ import RecurringInvoicesPage from "./pages/RecurringInvoicesPage";
 import BankReconciliationPage from "./pages/BankReconciliationPage";
 import MultiCurrencyPage from "./pages/MultiCurrencyPage";
 import InventoryValuationPage from "./pages/InventoryValuationPage";
+import ProductPerformancePage from "./pages/ProductPerformancePage";
 import TaxManagementPage from "./pages/TaxManagementPage";
 import BatchTrackingPage from "./pages/BatchTrackingPage";
 import DailyCashUpPage from "./pages/DailyCashUpPage";
@@ -157,6 +158,7 @@ const App = () => (
                <Route path="/bank-reconciliation" element={<ProtectedRoute><BankReconciliationPage /></ProtectedRoute>} />
                <Route path="/multi-currency" element={<ProtectedRoute><MultiCurrencyPage /></ProtectedRoute>} />
                <Route path="/inventory-valuation" element={<ProtectedRoute><InventoryValuationPage /></ProtectedRoute>} />
+               <Route path="/product-performance" element={<ProtectedRoute><ProductPerformancePage /></ProtectedRoute>} />
                <Route path="/tax-management" element={<ProtectedRoute><TaxManagementPage /></ProtectedRoute>} />
                <Route path="/batch-tracking" element={<ProtectedRoute><BatchTrackingPage /></ProtectedRoute>} />
                <Route path="/daily-cash-up" element={<ProtectedRoute><DailyCashUpPage /></ProtectedRoute>} />
