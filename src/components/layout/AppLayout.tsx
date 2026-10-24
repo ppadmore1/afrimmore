@@ -120,6 +120,7 @@ const navGroups: NavGroup[] = [
       { icon: GitCompare, label: "Stock Comparison", path: "/branch-stock", minRole: "staff" },
       { icon: PackageSearch, label: "Reorder Suggestions", path: "/reorder", minRole: "staff" },
       { icon: Calculator, label: "Inventory Valuation", path: "/inventory-valuation", minRole: "admin" },
+      { icon: BarChart3, label: "Product Performance", path: "/product-performance", minRole: "admin" },
       { icon: Layers, label: "Batch Tracking", path: "/batch-tracking", minRole: "staff" },
       { icon: Tag, label: "Serial Numbers", path: "/serial-numbers", minRole: "staff" },
       { icon: PackageCheck, label: "Bundle Items", path: "/bundle-items", minRole: "staff" },
@@ -210,8 +211,8 @@ function hasMinRole(userRoles: { isAdmin: boolean; isStaff: boolean; isCashier: 
 const COMMON = ["/", "/time-tracking", "/branch-insights"];
 const SPECIALIST_PATHS: Record<string, string[]> = {
   inventory_officer: ["/products", "/barcode-labels", "/inventory", "/stock-transfers", "/inventory-adjustments", "/branch-stock", "/reorder", "/batch-tracking", "/serial-numbers", "/bundle-items", "/warehouse-locations", "/suppliers", "/purchase-orders", "/my-branch"],
-  accountant: ["/invoices", "/quotations", "/receipts", "/credit-notes", "/recurring-invoices", "/customer-statements", "/customers", "/vendor-bills", "/chart-of-accounts", "/journal-entries", "/trial-balance", "/payments", "/expenses", "/financial-statements", "/aging-reports", "/bank-reconciliation", "/multi-currency", "/tax-management", "/inventory-valuation", "/reports", "/daily-cash-up", "/cash-up-dashboard", "/payroll-reports"],
-  executive: ["/cash-up-dashboard", "/daily-cash-up", "/reports", "/branch-reports", "/financial-statements", "/aging-reports", "/inventory-valuation", "/branch-stock", "/admin", "/branch-grades", "/audit-visits", "/payroll-reports"],
+  accountant: ["/invoices", "/quotations", "/receipts", "/credit-notes", "/recurring-invoices", "/customer-statements", "/customers", "/vendor-bills", "/chart-of-accounts", "/journal-entries", "/trial-balance", "/payments", "/expenses", "/financial-statements", "/aging-reports", "/bank-reconciliation", "/multi-currency", "/tax-management", "/inventory-valuation", "/product-performance", "/reports", "/daily-cash-up", "/cash-up-dashboard", "/payroll-reports"],
+  executive: ["/cash-up-dashboard", "/daily-cash-up", "/reports", "/branch-reports", "/financial-statements", "/aging-reports", "/inventory-valuation", "/product-performance", "/branch-stock", "/admin", "/branch-grades", "/audit-visits", "/payroll-reports"],
 };
 function specialistPaths(roles: string[]): Set<string> | null {
   if (roles.some((r) => ["admin", "owner", "staff", "branch_manager"].includes(r))) return null;
