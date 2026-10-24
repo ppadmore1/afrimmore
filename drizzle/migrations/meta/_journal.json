@@ -120,6 +120,13 @@
       "when": 1792796609134,
       "tag": "0016_insight_forecast_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792822276710,
+      "tag": "0017_manager_pin_roles",
+      "breakpoints": true
     }
   ]
 }

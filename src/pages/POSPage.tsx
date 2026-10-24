@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useUserRole } from "@/hooks/useUserRole";
 import { DualCurrencyCash } from "@/components/pos/DualCurrencyCash";
 import { fmtLrd, usdToLrd } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
@@ -319,6 +320,19 @@ export default function POSPage() {
     const clamped = Math.min(100, Math.max(0, pct));
     setCart((prev) => prev.map((i) => (i.product.id === productId ? { ...i, discount: clamped } : i)));
   };
+
+  // Floor-price control: cashiers need a manager PIN to sell below a product's minimum price
+  const { roles } = useUserRole();
+  const canOverrideFloor = roles.some((r) => r === "admin" || r === "owner" || r === "branch_manager");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [approvedFloor, setApprovedFloor] = useState<Map<string, number>>(new Map());
+  const effectivePrice = (i: CartItem) => Math.round(i.product.unit_price * (1 - i.discount / 100) * 100) / 100;
+  const belowFloorLines = canOverrideFloor ? [] : cart.filter((i) => {
+    const floor = Number(i.product.min_selling_price) || 0;
+    if (floor <= 0 || effectivePrice(i) + 0.005 >= floor) return false;
+    const ok = approvedFloor.get(i.product.id);
+    return ok === undefined || ok > effectivePrice(i) + 0.005;
+  });
 
   const updateQuantity = (productId: string, delta: number) => {
     setCart((prev) => {
@@ -861,6 +875,11 @@ export default function POSPage() {
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
                         <div className="flex items-center gap-2 text-xs text-[hsl(215,16%,47%)] font-mono">
                           <span>${item.product.unit_price.toFixed(2)} × {item.quantity}</span>
+                          {Number(item.product.min_selling_price) > 0 && (
+                            <span className={effectivePrice(item) + 0.005 < Number(item.product.min_selling_price) ? "text-destructive font-semibold" : ""} title="Lowest price allowed without manager PIN">
+                              Min ${Number(item.product.min_selling_price).toFixed(2)}
+                            </span>
+                          )}
                           <label className="flex items-center gap-1" title="Item discount %">
                             <span>Disc</span>
                             <input
@@ -1006,6 +1025,7 @@ export default function POSPage() {
               className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
               disabled={cart.length === 0}
               onClick={() => {
+                if (belowFloorLines.length > 0) { setPinOpen(true); return; }
                 setAmountReceived(total.toFixed(2));
                 setIsPaymentDialogOpen(true);
               }}
@@ -1173,6 +1193,33 @@ export default function POSPage() {
         />
 
         {/* Receipt Dialog */}
+        <ManagerPinDialog
+          isOpen={pinOpen}
+          onClose={() => setPinOpen(false)}
+          actionDescription={`Price below minimum for: ${belowFloorLines.map((i) => i.product.name).join(", ")}. Manager PIN required.`}
+          verify={async (pin) => {
+            let name = "Manager";
+            for (const line of belowFloorLines) {
+              const { data, error } = await supabase.rpc("authorize_price_override", {
+                p_pin: pin, p_product_id: line.product.id, p_price: effectivePrice(line),
+              });
+              if (error) throw error;
+              name = (data as string) || name;
+            }
+            return name;
+          }}
+          onVerified={() => {
+            setApprovedFloor((prev) => {
+              const m = new Map(prev);
+              belowFloorLines.forEach((l) => m.set(l.product.id, effectivePrice(l)));
+              return m;
+            });
+            setPinOpen(false);
+            setAmountReceived(total.toFixed(2));
+            setIsPaymentDialogOpen(true);
+          }}
+        />
+
         <ReceiptDialog
           isOpen={isReceiptOpen}
           onClose={() => setIsReceiptOpen(false)}

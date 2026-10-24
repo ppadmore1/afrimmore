@@ -21,7 +21,9 @@ import { useUserRole } from "@/hooks/useUserRole";
  
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin: isAdminRole, roles } = useUserRole();
+  // Owners, admins and branch managers can hold a manager PIN
+  const isAdmin = isAdminRole || roles.includes("branch_manager");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);

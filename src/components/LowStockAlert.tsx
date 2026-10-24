@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "@/contexts/BranchContext";
 
 async function getBranchScopedProducts(branchId: string | undefined): Promise<Product[]> {
-  const products = await getBranchScopedProducts(currentBranch?.id);
+  const products = await getProducts();
   if (!branchId) return products;
   const { data } = await supabase.from("product_branches")
     .select("product_id, stock_quantity, low_stock_threshold").eq("branch_id", branchId);
